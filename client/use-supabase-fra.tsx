@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { SupabaseStateStore } from './supabase-state-store';
+import { useSubscription, type SubscriptionState } from './use-subscription';
 
 /**
- * useSupabaseFra — wires Supabase auth + realtime into a StateStore instance
- * suitable for passing as the `persistenceStore` prop to <FundingRateArb />.
+ * useSupabaseFra — wires Supabase auth + realtime + MANDATORY subscription
+ * gating into a StateStore instance suitable for `<FundingRateArb />`.
  *
- * Returns `null` while the user session is loading or absent.
- * Subscribes to realtime changes on `fra_state` so the client UI reflects
- * server-side engine writes within ~1s.
+ * The returned `store` is `null` until BOTH conditions are met:
+ *   1. The user is authenticated.
+ *   2. The user has an active or trialing subscription
+ *      (verified via `public.subscriptions` and kept fresh via realtime).
+ *
+ * Consumers should still wrap their UI in `<SubscriptionGate />` to render
+ * the appropriate CTA / loader for the unauthenticated and no-sub cases.
  */
 export function useSupabaseFra(supabase: SupabaseClient) {
   const [userId, setUserId] = useState<string | null>(null);
@@ -28,17 +33,22 @@ export function useSupabaseFra(supabase: SupabaseClient) {
     };
   }, [supabase]);
 
+  // Mandatory subscription check
+  const subscription: SubscriptionState = useSubscription(supabase, userId);
+
+  // Only hand out the persistence store when auth + subscription are good.
   const store = useMemo(
-    () => (userId ? new SupabaseStateStore(supabase, userId) : null),
-    [supabase, userId],
+    () =>
+      userId && subscription.isActive
+        ? new SupabaseStateStore(supabase, userId)
+        : null,
+    [supabase, userId, subscription.isActive],
   );
 
-  // Realtime: bump a token whenever the server updates our state row, so the
-  // <FundingRateArb /> can be remounted (or the consumer can manually reload)
-  // to pick up engine-side changes.
+  // Realtime: bump revision when the engine state row changes server-side.
   const [revision, setRevision] = useState(0);
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !subscription.isActive) return;
     const channel: RealtimeChannel = supabase
       .channel(`fra_state:${userId}`)
       .on(
@@ -55,7 +65,7 @@ export function useSupabaseFra(supabase: SupabaseClient) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [supabase, userId]);
+  }, [supabase, userId, subscription.isActive]);
 
-  return { store, userId, revision };
+  return { store, userId, revision, subscription };
 }
