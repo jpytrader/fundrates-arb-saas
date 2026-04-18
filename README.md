@@ -55,10 +55,27 @@ supabase-saas/
 
 1. **Install** — `cd supabase-saas && npm install`
 2. **Link Supabase project** — `supabase link --project-ref <ref>`
-3. **Apply schema** — `supabase db push migrations/0001_init.sql`
-4. **Deploy engine** — `supabase functions deploy fra-engine`
-5. **Set vault secrets** — see [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)
-6. **Drop the client component into your app** — see [`client/ExampleApp.tsx`](./client/ExampleApp.tsx)
+3. **Apply operational schema** — `supabase db push migrations/0001_init.sql`
+4. **Apply billing schema** — `supabase db push migrations/0002_subscriptions.sql` (after installing the Stripe Sync Engine — see [`docs/BILLING.md`](./docs/BILLING.md))
+5. **Deploy functions** — `supabase functions deploy fra-engine create-checkout create-portal-session`
+6. **Set secrets** — see [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) and [`docs/BILLING.md`](./docs/BILLING.md)
+7. **Drop the client component into your app** — see [`client/ExampleApp.tsx`](./client/ExampleApp.tsx)
+
+## Billing (Mandatory)
+
+Every signed-in user must hold an **active or trialing Stripe subscription**
+to access `<FundingRateArb />`. The gate is enforced two ways:
+
+1. **`<SubscriptionGate />`** wraps the dashboard, shows a CTA, and
+   auto-redirects to Stripe Checkout when no active subscription exists.
+2. **`useSupabaseFra()`** internally calls `useSubscription()` and only hands
+   out a non-null `store` once `isActive === true` — so even if a developer
+   forgets to mount the gate, the engine cannot persist or load state.
+
+The Stripe **Sync Engine** mirrors `stripe.subscriptions` into
+`public.subscriptions` via the `sync_stripe_to_public()` trigger. Realtime
+keeps the client gate in sync within ~1s of any Stripe webhook. Full setup
+in [`docs/BILLING.md`](./docs/BILLING.md).
 
 ## Design constraint
 
