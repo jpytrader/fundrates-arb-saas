@@ -38,18 +38,29 @@ supabase-saas/
 ├── tsconfig.json
 ├── .env.example
 ├── client/
-│   ├── supabase-state-store.ts        ← StateStore adapter
-│   ├── use-supabase-fra.tsx           ← React hook wiring auth + store
-│   └── ExampleApp.tsx                 ← drop-in client example
+│   ├── supabase-state-store.ts        ← StateStore adapter (PersistedState ↔ fra_state)
+│   ├── use-supabase-fra.tsx           ← Hook: auth + realtime + mandatory sub gate
+│   ├── use-subscription.tsx           ← Hook: reads public.subscriptions + realtime
+│   ├── SubscriptionGate.tsx           ← Mandatory wrapper around <FundingRateArb />
+│   └── ExampleApp.tsx                 ← Drop-in client example
 ├── edge-functions/
-│   └── fra-engine/
-│       └── index.ts                   ← server-side engine tick
+│   ├── fra-engine/
+│   │   └── index.ts                   ← Server-side engine tick (pg_cron driven)
+│   ├── create-checkout/
+│   │   └── index.ts                   ← Stripe Checkout session (auth via getUser)
+│   └── create-portal-session/
+│       └── index.ts                   ← Stripe Customer Portal session
 ├── migrations/
-│   └── 0001_init.sql                  ← tables, RLS, realtime, cron
+│   ├── 0001_init.sql                  ← FRA tables, RLS, realtime, cron scaffolding
+│   └── 0002_subscriptions.sql         ← public.subscriptions + Stripe Sync trigger
 └── docs/
-    ├── DEPLOYMENT.md                  ← step-by-step deploy guide
-    └── ARCHITECTURE.md                ← design decisions & trade-offs
+    ├── DEPLOYMENT.md                  ← Step-by-step deploy of FRA tables + engine
+    ├── BILLING.md                     ← Stripe Sync Engine + subscription gate setup
+    └── ARCHITECTURE.md                ← Design decisions & trade-offs
 ```
+
+> A condensed, single-page deploy walk-through aimed at first-time users lives in
+> [`../funding-rate-arb/E2E_BILLING.md`](../funding-rate-arb/E2E_BILLING.md).
 
 ## Quick start
 

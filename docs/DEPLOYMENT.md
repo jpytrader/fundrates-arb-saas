@@ -1,7 +1,16 @@
 # Deployment Guide
 
 Step-by-step instructions to deploy the FRA SaaS wrapper to a fresh Supabase
-project.
+project. This guide covers the **operational** layer (state persistence + the
+server-side engine tick). The **billing** layer (mandatory Stripe subscription
+gate via the Stripe Sync Engine) is covered separately in
+[`BILLING.md`](./BILLING.md), and a condensed end-to-end walkthrough that
+combines both layers lives in
+[`../../funding-rate-arb/E2E_BILLING.md`](../../funding-rate-arb/E2E_BILLING.md).
+
+> **Order of operations:** apply `0001_init.sql` (this guide) **before**
+> `0002_subscriptions.sql` (BILLING.md). The `0002` trigger depends on the
+> `fra_touch_updated_at()` helper created here.
 
 ## Prerequisites
 
