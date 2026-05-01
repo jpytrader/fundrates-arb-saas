@@ -56,7 +56,8 @@ supabase-saas/
 └── docs/
     ├── DEPLOYMENT.md                  ← Step-by-step deploy of FRA tables + engine
     ├── BILLING.md                     ← Stripe Sync Engine + subscription gate setup
-    └── ARCHITECTURE.md                ← Design decisions & trade-offs
+    ├── ARCHITECTURE.md                ← Design decisions, billing sequence diagram, vault rotation v2
+    └── TENANT_ISOLATION.md            ← 7-layer isolation model with test cases
 ```
 
 > A condensed, single-page deploy walk-through aimed at first-time users lives in
