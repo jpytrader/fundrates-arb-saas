@@ -64,7 +64,28 @@ subscribe to `fra_events` — see the example app for a starting point.
 | Server tick only accrues funding, no order exec  | Publish a headless engine entrypoint from the package and import it in the edge function |
 | Single fallback funding rate (0.01% / 8h)        | Cache last-seen rates in `fra_state.state.lastRates` |
 | No per-user cron frequency                       | Add a `tick_interval_secs` column and per-user schedule |
-| Vault key rotation requires manual SQL           | Ship `<VaultKeysAdmin />` page (see §Vault rotation v2) |
+| No self-service rotation UI inside the SaaS app  | Ship `<VaultKeysAdmin />` page consuming the already-shipped `rotate-exchange-key` function (see §Vault rotation v2) |
+
+## Subscription enforcement at tick time
+
+`fra-engine` enforces Layer 7 of the tenant isolation model on every tick.
+After fetching all `fra_state` rows where `is_running = true`, it intersects
+them with the set of `user_id`s whose `public.subscriptions.status` is
+`active` or `trialing`. The set is cached in a module-scoped variable for
+`SUB_CACHE_TTL_MS` (45s by default — chosen as a balance between DB load and
+cancellation latency, well inside the 30–60s window).
+
+Behaviour:
+
+- **Cache hit** (age < TTL): no DB call; tick uses the cached set.
+- **Cache miss / cold start**: one `SELECT user_id FROM subscriptions WHERE status IN ('active','trialing')` query, then cache.
+- **Query failure**: log + fail closed. Reuse the previous cache if any, else
+  return an empty set. Canceled users never tick due to a transient outage.
+
+The response payload now includes `{ tenants, skipped, cacheAgeMs,
+cacheRefreshed, activeSubscribers }` for observability — `skipped` reveals
+the count of running tenants without an active subscription on the most
+recent cache snapshot.
 
 ---
 

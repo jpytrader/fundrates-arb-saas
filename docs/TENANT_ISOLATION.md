@@ -22,7 +22,7 @@ cascade.
 | 4 | Vault-stored exchange keys     | Keys in `vault.secrets` named `fra_<exchange>_key_<user_id>`, never sent to client | Browser process never holds plaintext keys |
 | 5 | Server tick ownership          | `fra-engine` enumerates users from `fra_state`, ignores request body     | Cron caller cannot impersonate a user  |
 | 6 | JWT identity at edge           | `supabase.auth.getUser(token)` is the only identity source in `create-checkout`, `create-portal-session`, `rotate-exchange-key` | Forged `user_id` in body is ignored    |
-| 7 | Subscription gate (billing)    | `useSupabaseFra` returns `store === null` until `public.subscriptions.status ∈ {active, trialing}` | Lapsed user cannot mount the engine    |
+| 7 | Subscription gate (billing)    | `useSupabaseFra` returns `store === null` until `public.subscriptions.status ∈ {active, trialing}`; **`fra-engine` re-checks server-side every tick (cached ~45s, fail-closed)** | Lapsed user cannot mount the engine and cannot receive server ticks |
 
 ---
 
@@ -239,20 +239,26 @@ it('unmounts engine within 2s of subscription cancel', async () => {
 });
 
 it('blocks server tick for canceled users', async () => {
-  // v2: fra-engine should skip rows where no active subscription exists
+  // Enforced server-side in fra-engine (Option B). Subscription IDs are
+  // cached ~45s, so a canceled user has at most one cache window of
+  // residual accrual; query failures fail closed (no tick).
   await admin.from('subscriptions').update({ status: 'canceled' }).eq('user_id', userA.id);
+  await waitForCacheExpiry(45_000);
+  const before = await admin.from('fra_state').select('state').eq('user_id', userA.id).single();
   await invokeCron();
-  const { data: stateAfter } = await admin.from('fra_state').select('state').eq('user_id', userA.id).single();
-  expect(stateAfter.state.lastFundingAccrualAt).toBe(stateBefore.state.lastFundingAccrualAt);
+  const after  = await admin.from('fra_state').select('state').eq('user_id', userA.id).single();
+  expect(after.data!.state.lastFundingAccrualAt)
+    .toBe(before.data!.state.lastFundingAccrualAt);
 });
 ```
 
-> **Note**: Layer 7's server-side enforcement (skipping cron for inactive
-> subs) is a v2 hardening. v1 enforces it client-side only; an attacker who
-> kept their browser tab open through cancellation would still get one
-> server-tick window of accrual. This is acceptable because billing status
-> changes are rare and the worst case is hours of free funding accrual, not
-> data leakage.
+> **Server-side enforcement**. Layer 7 is enforced inside `fra-engine` via a
+> cached `getActiveSubscriberIds()` lookup against `public.subscriptions`. The
+> cache TTL (~45s) caps residual accrual after cancellation to a single window;
+> a DB error on the lookup fails closed (reuse stale cache or empty set), so a
+> canceled user can never receive a fresh tick due to a transient outage. The
+> client-side `<SubscriptionGate />` remains the first line of defence; the
+> server filter is defence in depth.
 
 ---
 
