@@ -144,10 +144,20 @@ refreshing the page.
 
 ## Vault rotation v2 — `<VaultKeysAdmin />`
 
+> **Status — partially shipped.** The server-side primitives (audit table,
+> atomic RPC, edge function) and the optional `<RotateKeyDialog />` modal in
+> `supabase-saas/client/` ship in this package today
+> (`migrations/0003_vault_admin.sql` + `edge-functions/rotate-exchange-key/`
+> + `client/RotateKeyDialog.tsx`). A read-only audit viewer is wired into the
+> host project's Admin page as `<VaultKeyRotations />`. The remaining v2 item
+> is the full self-service `<VaultKeysAdmin />` settings page (per-exchange
+> cards, last-rotated timestamps, Remove action) inside the SaaS demo app.
+
 Today, exchange API keys live in Supabase Vault under deterministic names
-(`fra_hyperliquid_key_<user_id>`, `fra_okx_key_<user_id>`, etc.) and are
-inserted/rotated by hand via SQL. v2 ships a self-service admin page in the
-SaaS app so users rotate their own keys without ever leaking them client-side.
+(`fra_hyperliquid_key_<user_id>`, `fra_okx_key_<user_id>`, etc.). Before this
+slice they were inserted/rotated by hand via SQL; now any signed-in user can
+rotate via the edge function without secrets ever round-tripping through a
+custom backend.
 
 ### Goals
 
@@ -236,10 +246,16 @@ is the **only** path from a user JWT to a Vault write.
 
 ### Migration path
 
-1. Ship `rotate_vault_secret` SQL function + `fra_key_rotations` table
-   (`migrations/0003_vault_admin.sql`).
-2. Deploy `rotate-exchange-key` edge function with `verify_jwt = true`.
-3. Add `<VaultKeysAdmin />` and route. Existing users keep their hand-loaded
-   secrets — the page just lets them rotate going forward.
-4. Optional: a one-shot CLI script `bun run scripts/import-vault-keys.ts`
+1. ✅ **Shipped** — `rotate_vault_secret` SQL function + `fra_key_rotations`
+   table in `migrations/0003_vault_admin.sql`.
+2. ✅ **Shipped** — `rotate-exchange-key` edge function (validates JWT in
+   code; `verify_jwt = false` is the Lovable default).
+3. ✅ **Shipped** — `RotateKeyDialog` modal in `supabase-saas/client/` and
+   read-only `<VaultKeyRotations />` audit viewer wired into the host
+   project's Admin page (super-admin only).
+4. ⏳ **Remaining** — full `<VaultKeysAdmin />` settings page in the SaaS
+   demo app (per-exchange status, Remove action). Users keep their
+   hand-loaded secrets in the meantime; the existing primitives let them
+   rotate today.
+5. Optional: a one-shot CLI script `bun run scripts/import-vault-keys.ts`
    that bulk-imports legacy keys from a CSV under service-role.
