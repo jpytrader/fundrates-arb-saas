@@ -1,8 +1,9 @@
 // supabase/functions/fra-engine/index.ts
 //
 // Server-side engine tick. Triggered by pg_cron on a fixed interval (default 60s).
-// For every user with `is_running = true`, loads their state, runs ONE scan/exec
-// tick, and writes state back. Exchange keys are read from Supabase Vault.
+// For every user with `is_running = true` AND an active/trialing subscription,
+// loads their state, runs ONE scan/exec tick, and writes state back. Exchange
+// keys are read from Supabase Vault.
 //
 // IMPORTANT: This function deliberately does NOT import @vireson/funding-rate-arb
 // directly. The component is browser-only (DOM, React); we re-implement the tick
@@ -11,8 +12,12 @@
 // only advances time-based state (funding accrual, exit checks) when the user's
 // app is closed.
 //
-// If/when the component publishes a headless engine entrypoint, swap the manual
-// tick below for a direct `ArbEngine` import.
+// Subscription enforcement (Layer 7 of TENANT_ISOLATION.md, Option B):
+// Every tick, we intersect the running tenants with the set of users whose
+// public.subscriptions row is in {'active','trialing'}. The set is cached
+// in-memory for SUB_CACHE_TTL_MS (~45s) to avoid hammering the DB. On query
+// failure we fail closed (reuse last cache or empty), so canceled users never
+// receive ticks.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -25,6 +30,35 @@ interface PersistedStateRow {
   user_id: string;
   state: Record<string, unknown>;
   is_running: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Subscription cache — module-scoped so it survives across invocations within
+// the same warm Deno isolate. Cold starts simply rebuild it on first tick.
+// ---------------------------------------------------------------------------
+const SUB_CACHE_TTL_MS = 45_000; // 30–60s window
+let subCache: { fetchedAt: number; ids: Set<string> } | null = null;
+
+async function getActiveSubscriberIds(
+  supabase: ReturnType<typeof createClient>,
+): Promise<{ ids: Set<string>; ageMs: number; cold: boolean }> {
+  const now = Date.now();
+  if (subCache && now - subCache.fetchedAt < SUB_CACHE_TTL_MS) {
+    return { ids: subCache.ids, ageMs: now - subCache.fetchedAt, cold: false };
+  }
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .select('user_id')
+    .in('status', ['active', 'trialing']);
+  if (error) {
+    console.error('[fra-engine] subscription lookup failed:', error.message);
+    // Fail closed: reuse stale cache if any, else empty set.
+    const fallback = subCache?.ids ?? new Set<string>();
+    return { ids: fallback, ageMs: subCache ? now - subCache.fetchedAt : -1, cold: true };
+  }
+  const ids = new Set<string>(((data ?? []) as Array<{ user_id: string }>).map((r) => r.user_id));
+  subCache = { fetchedAt: now, ids };
+  return { ids, ageMs: 0, cold: true };
 }
 
 Deno.serve(async (req) => {
@@ -57,9 +91,14 @@ Deno.serve(async (req) => {
     });
   }
 
-  const results: Array<{ userId: string; ok: boolean; error?: string }> = [];
+  // Layer 7 enforcement: intersect with active subscribers.
+  const { ids: activeIds, ageMs: cacheAgeMs, cold } = await getActiveSubscriberIds(supabase);
+  const allRows = (rows ?? []) as PersistedStateRow[];
+  const eligible = allRows.filter((r) => activeIds.has(r.user_id));
+  const skipped = allRows.length - eligible.length;
 
-  for (const row of (rows ?? []) as PersistedStateRow[]) {
+  const results: Array<{ userId: string; ok: boolean; error?: string }> = [];
+  for (const row of eligible) {
     try {
       await tickUser(supabase, row);
       results.push({ userId: row.user_id, ok: true });
@@ -73,7 +112,14 @@ Deno.serve(async (req) => {
   }
 
   return new Response(
-    JSON.stringify({ tenants: results.length, results }),
+    JSON.stringify({
+      tenants: results.length,
+      skipped,
+      cacheAgeMs,
+      cacheRefreshed: cold,
+      activeSubscribers: activeIds.size,
+      results,
+    }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   );
 });
