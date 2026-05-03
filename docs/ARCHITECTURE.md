@@ -60,11 +60,37 @@ subscribe to `fra_events` — see the example app for a starting point.
 ## Limitations & v2 roadmap
 
 | Limitation                                       | Planned fix                              |
-|--------------------------------------------------|------------------------------------------|
-| Server tick only accrues funding, no order exec  | Publish a headless engine entrypoint from the package and import it in the edge function |
-| Single fallback funding rate (0.01% / 8h)        | Cache last-seen rates in `fra_state.state.lastRates` |
+| ------------------------------------------------ | ---------------------------------------- |
+| ~~Server tick only accrues funding, no order exec~~ | **Done (F1)**: edge function now imports `ArbEngine` from `@vireson/funding-rate-arb` and runs `engine.tick()` per tenant. No accrual logic is duplicated server-side. |
 | No per-user cron frequency                       | Add a `tick_interval_secs` column and per-user schedule |
 | No self-service rotation UI inside the SaaS app  | Ship `<VaultKeysAdmin />` page consuming the already-shipped `rotate-exchange-key` function (see §Vault rotation v2) |
+| Webhook resilience relies entirely on Stripe Sync Engine | Add native `stripe-webhook-fra` + DLQ + hourly reconciliation (S3) |
+
+## Server tick (F1 — headless ArbEngine)
+
+The edge function `fra-engine` no longer carries its own funding-accrual loop.
+Per running, subscribed tenant per tick it:
+
+1. Hydrates a `MemoryStore` from the `fra_state.state` JSONB blob.
+2. Loads the user's exchange + Vault payload from `fra_user_exchanges`
+   (`createHyperliquidAdapter` / `createOKXAdapter`, or the matching
+   `createDryRun*Adapter` when no keys are stored).
+3. Constructs `new ArbEngine(config, adapter, store, { manualTick: true })`.
+   The `manualTick` flag — added in F1 — opts out of the internal
+   `setInterval` so the cron caller drives ticks itself.
+4. Calls `await engine.start()` (restores state into the engine without
+   starting a timer) followed by `await engine.tick()` (one
+   scan/exec/accrual cycle, identical to a single client-side scan).
+5. Reads the updated blob back from the `MemoryStore` and writes it to
+   `fra_state.state`.
+6. Mirrors any `ExecutionEvent`s collected via `engine.onExecution(...)`
+   into `fra_events` with `data.source = 'server'`.
+
+The component itself remains 100% self-contained — `ArbEngine`,
+`MemoryStore`, and the adapter factories are plain TypeScript with no DOM
+or React dependencies. The SaaS is a *consumer* of those exports, not a
+fork.
+
 
 ## Subscription enforcement at tick time
 
