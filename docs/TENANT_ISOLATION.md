@@ -20,7 +20,7 @@ cascade.
 | 2 | State RLS                      | `public.fra_state` policies `USING (auth.uid() = user_id)`               | DB rejects cross-user SELECT/UPDATE    |
 | 3 | Realtime channel filter + RLS  | Client subscribes with `filter: user_id=eq.<uid>`; server re-checks RLS  | Realtime broker drops unauthorized payloads |
 | 4 | Vault-stored exchange keys     | Keys in `vault.secrets` named `fra_<exchange>_key_<user_id>`, never sent to client | Browser process never holds plaintext keys |
-| 5 | Server tick ownership          | `fra-engine` enumerates users from `fra_state`, ignores request body     | Cron caller cannot impersonate a user  |
+| 5 | Server tick ownership          | `fra-engine` enumerates users from `fra_state`, ignores request body. The tick body imports `ArbEngine` from `@vireson/funding-rate-arb` and calls `engine.tick()` per tenant — no parallel server-side engine implementation exists. | Cron caller cannot impersonate a user; client and server execute the same engine code  |
 | 6 | JWT identity at edge           | `supabase.auth.getUser(token)` is the only identity source in `create-checkout`, `create-portal-session`, `rotate-exchange-key` | Forged `user_id` in body is ignored    |
 | 7 | Subscription gate (billing)    | `useSupabaseFra` returns `store === null` until `public.subscriptions.status ∈ {active, trialing}`; **`fra-engine` re-checks server-side every tick (cached ~45s, fail-closed)** | Lapsed user cannot mount the engine and cannot receive server ticks |
 
