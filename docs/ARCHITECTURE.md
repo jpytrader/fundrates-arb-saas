@@ -54,8 +54,10 @@ subscribe to `fra_events` — see the example app for a starting point.
 
 - **Client never sees other users' state** — RLS is mandatory on every table.
 - **Exchange keys never reach the browser** in SaaS mode. The client passes
-  empty `exchangeKeys` and runs in dry-run, while the server tick reads keys
-  from Vault. (Wiring real-order execution server-side is a v2 enhancement.)
+  empty `exchangeKeys` and runs in dry-run; the server tick reads keys from
+  Vault and constructs a real adapter (or a dry-run adapter when no row
+  exists in `fra_user_exchanges`).
+
 - **Cron endpoint** is gated by a long random `FRA_CRON_SECRET` shared between
   Postgres and the edge function. JWT verification is disabled because cron
   cannot present a user token.
