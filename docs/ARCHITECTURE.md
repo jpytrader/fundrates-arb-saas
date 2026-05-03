@@ -14,17 +14,20 @@
 
 | Concern              | Client engine                       | Server engine (edge fn)              |
 |----------------------|-------------------------------------|--------------------------------------|
-| Source code          | `@vireson/funding-rate-arb`         | `edge-functions/fra-engine`          |
+| Source code          | `@vireson/funding-rate-arb` (`<FundingRateArb />`) | `edge-functions/fra-engine` — **imports** `ArbEngine` from the same package |
 | Runtime              | Browser / WebView                   | Deno on Supabase Edge                |
-| Triggers scans       | Yes (UI-driven)                     | Yes (pg_cron, every 60s)             |
-| Places real orders   | Yes (when user has keys configured) | No (read/accrue only in v1)          |
-| Reads/writes state   | via `SupabaseStateStore`            | direct service-role SQL              |
-| Reads exchange keys  | from props                          | from Supabase Vault                  |
+| Triggers scans       | Yes (UI-driven, `setInterval`)      | Yes (pg_cron, every 60s, `manualTick: true` + `engine.tick()`) |
+| Places real orders   | Yes (when user has keys configured) | Yes — adapter is built from Vault payload; falls back to dry-run when keys are absent |
+| Reads/writes state   | via `SupabaseStateStore`            | hydrates a `MemoryStore` from the JSONB blob, runs one `tick()`, writes the blob back |
+| Reads exchange keys  | from props                          | from Supabase Vault (`fra_user_exchanges` → `vault.decrypted_secrets`) |
 
-Both write to the same `fra_state.state` JSONB blob. The client treats the row
-as authoritative on load (so server-accrued funding shows up immediately) and
-the server treats existing positions as immutable (it only advances time-based
-fields like `lastFundingAccrualAt`).
+Both write to the same `fra_state.state` JSONB blob, which is exactly the
+`PersistedState` shape produced by the component's existing stores. Because
+the server tick runs the *same* `ArbEngine` class as the browser, the
+project rule that "Live and Paper modes must execute identical sequential
+logic" extends naturally to client vs. server ticks — there is no second
+implementation to drift.
+
 
 ## Why JSONB blob + denormalized mirrors?
 
