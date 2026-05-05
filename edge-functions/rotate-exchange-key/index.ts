@@ -110,9 +110,11 @@ Deno.serve(async (req) => {
     }
     const { exchange, apiKey, apiSecret, extra } = parsed.data;
 
-    // 3. Smoke-test before writing.
-    const ok = await probeExchange(exchange, apiKey, apiSecret, extra);
-    if (!ok) return json({ error: 'exchange probe failed — keys not stored' }, 400);
+    // 3. Real signed validation before writing (F2 + S2).
+    const validation = await validateExchangeKeys(exchange, apiKey, apiSecret, extra);
+    if (!validation.ok) {
+      return json({ error: `exchange validation failed: ${validation.reason}` }, 400);
+    }
 
     // 4. Atomic vault rotate (service role).
     const admin = createClient(
