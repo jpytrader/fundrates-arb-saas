@@ -290,3 +290,68 @@ is the **only** path from a user JWT to a Vault write.
    rotate today.
 5. Optional: a one-shot CLI script `bun run scripts/import-vault-keys.ts`
    that bulk-imports legacy keys from a CSV under service-role.
+
+---
+
+## Production Hardening (S3–S7)
+
+The following layers were added in `migrations/0004_billing_resilience.sql`
+and the new edge functions. They sit on top of the existing tenant-isolation
+and vault-rotation stack — no behavior changes to the engine itself.
+
+### S3 — Stripe webhook resilience
+
+```
+Stripe ─► stripe-webhook-fra (verify sig)
+              │ ok                       │ err
+              ▼                          ▼
+        public.subscriptions      public.fra_webhook_dlq
+                                          │
+                       reconcile-subscriptions (hourly cron)
+                                          │ replay + exp. backoff (≤8 retries)
+                                          ▼
+                                   public.subscriptions
+```
+
+- `stripe-webhook-fra` upserts `public.subscriptions` natively as defense in
+  depth alongside Stripe Sync Engine.
+- Failed events (unknown customer, transient DB error) are parked in
+  `public.fra_webhook_dlq` with `next_attempt_at`.
+- `reconcile-subscriptions` drains the DLQ AND walks every known
+  `stripe_customer_id` to correct silent drift.
+
+### S4 — Concurrency isolation via `fra_engine_locks`
+
+Two layers of TTL-backed locks (durable across edge-function HTTP isolates,
+unlike `pg_advisory_lock` which is session-scoped):
+
+| Key                   | TTL  | Purpose                                                |
+| --------------------- | ---- | ------------------------------------------------------ |
+| `fra-engine-tick`     | 120s | Skip a tick if the previous one is still running.      |
+| `fra-tick:<user_id>`  | 90s  | Prevent two ticks racing on the same tenant.           |
+
+Plus `UNIQUE (user_id, type, timestamp)` on `fra_events` makes event inserts
+idempotent under retries.
+
+### S5 — Subscription cache hardening
+
+| Outcome  | TTL  |
+| -------- | ---- |
+| Healthy  | 45 s |
+| DB error | 5 s  |
+
+A transient DB blip falls back to the last good set for ≤5 s instead of
+pinning stale data through the full 45 s window.
+
+### S6 — Vault revoke + audit `action`
+
+`fra_key_rotations` gained `action ('rotate'|'revoke')`. New
+`revoke-exchange-key` edge function and `revoke_vault_secret(p_name, p_user_id)`
+SECURITY-DEFINER RPC (REVOKEd from anon/authenticated/PUBLIC).
+
+### S7 — Observability
+
+- `_shared/logger.ts` — JSON logs, never PII, `user_id` SHA-256 hashed.
+- `public.fra_engine_metrics` — one row per tick (`tenants_*`, `errors`,
+  `duration_ms`, `sub_cache_*`).
+- `EngineMetrics.tsx` — super-admin-only React panel showing last 24 h.
