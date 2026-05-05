@@ -105,20 +105,42 @@ END $$;
 
 COMMIT;
 
--- ─────── S4: advisory-lock helper RPC (reachable by service_role) ──────────
-CREATE OR REPLACE FUNCTION public.fra_try_advisory_lock(p_key text)
+-- Replace advisory wrappers (HTTP RPC sessions don't persist, so use a
+-- TTL'd lock table — same effect, simpler reasoning).
+DROP FUNCTION IF EXISTS public.fra_try_advisory_lock(text);
+DROP FUNCTION IF EXISTS public.fra_advisory_unlock(text);
+
+CREATE TABLE IF NOT EXISTS public.fra_engine_locks (
+  key          text PRIMARY KEY,
+  acquired_at  timestamptz NOT NULL DEFAULT now(),
+  expires_at   timestamptz NOT NULL
+);
+
+ALTER TABLE public.fra_engine_locks ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.fra_try_lock(p_key text, p_ttl_secs int DEFAULT 120)
 RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE v_ok boolean := false;
+BEGIN
+  -- Best-effort cleanup of stale locks.
+  DELETE FROM public.fra_engine_locks WHERE expires_at < now();
+  INSERT INTO public.fra_engine_locks (key, expires_at)
+  VALUES (p_key, now() + (p_ttl_secs || ' seconds')::interval)
+  ON CONFLICT (key) DO NOTHING;
+  GET DIAGNOSTICS v_ok = ROW_COUNT;
+  RETURN v_ok > 0;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.fra_unlock(p_key text)
+RETURNS void
 LANGUAGE sql
 SECURITY DEFINER
 SET search_path = public
-AS $$ SELECT pg_try_advisory_lock(hashtext(p_key)); $$;
+AS $$ DELETE FROM public.fra_engine_locks WHERE key = p_key; $$;
 
-CREATE OR REPLACE FUNCTION public.fra_advisory_unlock(p_key text)
-RETURNS boolean
-LANGUAGE sql
-SECURITY DEFINER
-SET search_path = public
-AS $$ SELECT pg_advisory_unlock(hashtext(p_key)); $$;
-
-REVOKE ALL ON FUNCTION public.fra_try_advisory_lock(text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.fra_advisory_unlock(text)  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.fra_try_lock(text, int) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.fra_unlock(text)        FROM PUBLIC, anon, authenticated;
