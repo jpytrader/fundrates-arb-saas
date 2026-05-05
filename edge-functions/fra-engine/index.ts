@@ -39,6 +39,9 @@ import {
   type ExchangeAdapter,
   type PersistedState,
 } from 'npm:@vireson/funding-rate-arb@^0.1.0';
+import { createLogger } from '../_shared/logger.ts';
+
+const log = createLogger('fra-engine');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,33 +55,43 @@ interface PersistedStateRow {
 }
 
 // ---------------------------------------------------------------------------
-// Subscription cache — module-scoped so it survives across invocations within
-// the same warm Deno isolate. Cold starts simply rebuild it on first tick.
+// Subscription cache (S5):
+//   * Positive TTL  : 45 s — caps DB load at ≤80 lookups/hour per isolate.
+//   * Negative TTL  : 5 s  — on DB error we fall back to the stale set, but
+//                            only briefly so a transient blip doesn't pin
+//                            stale data through a long window.
 // ---------------------------------------------------------------------------
-const SUB_CACHE_TTL_MS = 45_000; // 30–60s positive cache window
-let subCache: { fetchedAt: number; ids: Set<string> } | null = null;
+const SUB_CACHE_POSITIVE_TTL_MS = 45_000;
+const SUB_CACHE_NEGATIVE_TTL_MS = 5_000;
+let subCache: { fetchedAt: number; ids: Set<string>; healthy: boolean } | null = null;
 
 async function getActiveSubscriberIds(
   supabase: ReturnType<typeof createClient>,
 ): Promise<{ ids: Set<string>; ageMs: number; cold: boolean }> {
   const now = Date.now();
-  if (subCache && now - subCache.fetchedAt < SUB_CACHE_TTL_MS) {
-    return { ids: subCache.ids, ageMs: now - subCache.fetchedAt, cold: false };
+  if (subCache) {
+    const age = now - subCache.fetchedAt;
+    const ttl = subCache.healthy ? SUB_CACHE_POSITIVE_TTL_MS : SUB_CACHE_NEGATIVE_TTL_MS;
+    if (age < ttl) return { ids: subCache.ids, ageMs: age, cold: false };
   }
   const { data, error } = await supabase
     .from('subscriptions')
     .select('user_id')
     .in('status', ['active', 'trialing']);
   if (error) {
-    console.error('[fra-engine] subscription lookup failed:', error.message);
-    // Fail closed: reuse stale cache if any, else empty set.
+    log.error('subscription_lookup_failed', { error: error.message });
     const fallback = subCache?.ids ?? new Set<string>();
-    return { ids: fallback, ageMs: subCache ? now - subCache.fetchedAt : -1, cold: true };
+    // Mark unhealthy so we re-try in 5 s, not 45 s.
+    subCache = { fetchedAt: now, ids: fallback, healthy: false };
+    return { ids: fallback, ageMs: 0, cold: true };
   }
   const ids = new Set<string>(((data ?? []) as Array<{ user_id: string }>).map((r) => r.user_id));
-  subCache = { fetchedAt: now, ids };
+  subCache = { fetchedAt: now, ids, healthy: true };
   return { ids, ageMs: 0, cold: true };
 }
+
+/** Internal — exposed for unit tests only. */
+export const __test__ = { reset: () => { subCache = null; }, get: () => subCache };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -92,55 +105,109 @@ Deno.serve(async (req) => {
     });
   }
 
+  const startedAt = Date.now();
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // Fetch all running tenants
-  const { data: rows, error } = await supabase
-    .from('fra_state')
-    .select('user_id, state, is_running')
-    .eq('is_running', true);
-
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+  // S4 — global tick lock. Prevents overlap if a tick exceeds the cron interval.
+  const { data: gotGlobalLock } = await supabase
+    .rpc('fra_try_lock', { p_key: 'fra-engine-tick', p_ttl_secs: 120 });
+  if (!gotGlobalLock) {
+    log.warn('skipped_tick_locked', {});
+    return new Response(JSON.stringify({ skipped: true, reason: 'global lock held' }), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  // Layer 7 enforcement: intersect with active subscribers.
-  const { ids: activeIds, ageMs: cacheAgeMs, cold } = await getActiveSubscriberIds(supabase);
-  const allRows = (rows ?? []) as PersistedStateRow[];
-  const eligible = allRows.filter((r) => activeIds.has(r.user_id));
-  const skipped = allRows.length - eligible.length;
+  try {
+    // Fetch all running tenants
+    const { data: rows, error } = await supabase
+      .from('fra_state')
+      .select('user_id, state, is_running')
+      .eq('is_running', true);
 
-  const results: Array<{ userId: string; ok: boolean; error?: string }> = [];
-  for (const row of eligible) {
-    try {
-      await tickUser(supabase, row);
-      results.push({ userId: row.user_id, ok: true });
-    } catch (err) {
-      results.push({
-        userId: row.user_id,
-        ok: false,
-        error: err instanceof Error ? err.message : String(err),
+    if (error) {
+      log.error('fra_state_query_failed', { error: error.message });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-  }
 
-  return new Response(
-    JSON.stringify({
-      tenants: results.length,
-      skipped,
-      cacheAgeMs,
-      cacheRefreshed: cold,
-      activeSubscribers: activeIds.size,
-      results,
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-  );
+    // Layer 7 enforcement: intersect with active subscribers.
+    const { ids: activeIds, ageMs: cacheAgeMs, cold } = await getActiveSubscriberIds(supabase);
+    const allRows = (rows ?? []) as PersistedStateRow[];
+    const eligible = allRows.filter((r) => activeIds.has(r.user_id));
+    const skipped = allRows.length - eligible.length;
+
+    const results: Array<{ userId: string; ok: boolean; error?: string; locked?: boolean }> = [];
+    let errorCount = 0;
+    for (const row of eligible) {
+      // S4 — per-tenant lock. Prevents two ticks from racing on the same user
+      // (e.g. cron + manual replay).
+      const tenantKey = `fra-tick:${row.user_id}`;
+      const { data: gotTenantLock } = await supabase
+        .rpc('fra_try_lock', { p_key: tenantKey, p_ttl_secs: 90 });
+      if (!gotTenantLock) {
+        results.push({ userId: row.user_id, ok: false, locked: true });
+        continue;
+      }
+      try {
+        await tickUser(supabase, row);
+        results.push({ userId: row.user_id, ok: true });
+      } catch (err) {
+        errorCount++;
+        const userIdHash = await log.hashUserId(row.user_id);
+        log.error('tick_failed', { user_id_hash: userIdHash, error: err instanceof Error ? err.message : String(err) });
+        results.push({
+          userId: row.user_id,
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } finally {
+        await supabase.rpc('fra_unlock', { p_key: tenantKey });
+      }
+    }
+
+    const durationMs = Date.now() - startedAt;
+
+    // S7 — emit one metrics row per tick.
+    await supabase.from('fra_engine_metrics').insert({
+      tenants_total: allRows.length,
+      tenants_eligible: eligible.length,
+      tenants_skipped: skipped,
+      errors: errorCount,
+      duration_ms: durationMs,
+      sub_cache_age_ms: cacheAgeMs,
+      sub_cache_cold: cold,
+    });
+
+    log.info('tick_complete', {
+      tenants_total: allRows.length,
+      tenants_eligible: eligible.length,
+      tenants_skipped: skipped,
+      errors: errorCount,
+      duration_ms: durationMs,
+    });
+
+    return new Response(
+      JSON.stringify({
+        tenants: results.length,
+        skipped,
+        cacheAgeMs,
+        cacheRefreshed: cold,
+        activeSubscribers: activeIds.size,
+        durationMs,
+        results,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  } finally {
+    await supabase.rpc('fra_unlock', { p_key: 'fra-engine-tick' });
+  }
 });
 
 // ---------------------------------------------------------------------------
