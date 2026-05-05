@@ -285,3 +285,25 @@ Before merging anything that touches `fra_state`, `subscriptions`,
 - [ ] Grep build output for `0x[a-f0-9]{64}` and known exchange API key prefixes
 - [ ] New edge functions call `supabase.auth.getUser(token)` before any user-scoped action
 - [ ] New realtime subscriptions include a `filter: user_id=eq.${userId}` clause
+
+## Layer 8 — Concurrency isolation via locks (S4)
+
+Two reentrant TTL-backed locks live in `public.fra_engine_locks` (preferred
+over `pg_advisory_lock` because edge-function HTTP calls don't share a
+Postgres session):
+
+- `fra-engine-tick` (TTL 120 s) — only one engine tick runs globally at a time.
+- `fra-tick:<user_id>` (TTL 90 s) — only one tick per tenant runs at a time.
+
+A retried cron invocation, a manual replay, or a slow tick that bleeds into
+the next minute can no longer double-process a tenant. Combined with the new
+`UNIQUE (user_id, type, timestamp)` index on `fra_events`, accrual events
+are also idempotent at the row level — duplicate inserts collapse via
+`ON CONFLICT DO NOTHING`.
+
+### Subscription cache (Layer 7) hardening
+
+Negative cache (`SUB_CACHE_NEGATIVE_TTL_MS = 5 s`) ensures that a transient
+DB error during the subscription lookup never pins stale data through the
+full 45 s positive-cache window — see `edge-functions/fra-engine/index.ts`
+and the Deno test in `edge-functions/fra-engine/sub_cache_test.ts`.

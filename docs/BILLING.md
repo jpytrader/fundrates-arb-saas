@@ -93,3 +93,27 @@ restricts each user to their own row.
 | Row inserted but `user_id` is null | metadata missing on the Stripe sub | Re-deploy `create-checkout`; existing subs created externally won't have it |
 | Gate stays locked after Checkout | Realtime not enabled on `public.subscriptions` | Re-run migration step 0002; check Database → Replication |
 | `create-portal-session` 404 | No subscription exists yet | User must complete Checkout first |
+
+---
+
+## Native webhook fallback (S3)
+
+Stripe Sync Engine is the primary subscription mirror, but we also run our
+own minimal handler `stripe-webhook-fra` for defense in depth:
+
+1. Verifies the Stripe signature (`STRIPE_WEBHOOK_SECRET`).
+2. Upserts `public.subscriptions` directly for `customer.subscription.*` events.
+3. On failure, parks the event in `public.fra_webhook_dlq` with
+   `next_attempt_at` and exponential backoff metadata.
+4. Always returns `200` to Stripe — the DLQ owns retries from then on.
+
+## Hourly Stripe reconciliation (S3)
+
+`reconcile-subscriptions` runs every hour via `pg_cron`:
+
+- Drains `public.fra_webhook_dlq` (≤8 retries, exponential backoff capped at 1 h).
+- Walks every `stripe_customer_id` in `public.profiles` and asks Stripe for
+  the latest subscription state, correcting drift in `public.subscriptions`.
+
+This guarantees Layer 7 (subscription gating) eventually converges even if a
+webhook is permanently lost.
