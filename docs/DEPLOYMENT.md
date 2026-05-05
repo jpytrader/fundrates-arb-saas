@@ -121,3 +121,63 @@ supabase functions delete fra-engine
 psql $DATABASE_URL -c "SELECT cron.unschedule('fra-engine-tick');"
 psql $DATABASE_URL -c "DROP TABLE public.fra_events, public.fra_pnl_history, public.fra_positions, public.fra_state CASCADE;"
 ```
+
+---
+
+## Production hardening additions (S3–S7)
+
+### 1. Apply migration
+
+```bash
+supabase db push   # picks up migrations/0004_billing_resilience.sql
+```
+
+This creates `fra_webhook_dlq`, `fra_engine_locks`, `fra_engine_metrics`,
+the `action` column on `fra_key_rotations`, the `uq_fra_events_user_type_ts`
+unique index, and the `revoke_vault_secret` / `fra_try_lock` / `fra_unlock`
+SECURITY-DEFINER RPCs.
+
+### 2. Deploy edge functions
+
+```bash
+supabase functions deploy stripe-webhook-fra
+supabase functions deploy reconcile-subscriptions
+supabase functions deploy revoke-exchange-key
+supabase functions deploy fra-engine          # updated: locks + cache + metrics
+supabase functions deploy rotate-exchange-key # updated: validateKeys
+```
+
+### 3. Configure secrets
+
+| Secret                  | Used by                                     |
+| ----------------------- | ------------------------------------------- |
+| `STRIPE_SECRET_KEY`     | `stripe-webhook-fra`, `reconcile-…`         |
+| `STRIPE_WEBHOOK_SECRET` | `stripe-webhook-fra`                        |
+| `FRA_CRON_SECRET`       | `fra-engine`, `reconcile-subscriptions`     |
+
+### 4. Webhook endpoint (Stripe Dashboard)
+
+Point a new Stripe webhook endpoint at:
+`https://<project-ref>.functions.supabase.co/stripe-webhook-fra`
+Subscribe to `customer.subscription.*` only.
+
+### 5. Cron jobs
+
+```sql
+-- reconcile-subscriptions — hourly
+SELECT cron.schedule(
+  'fra-reconcile-subscriptions',
+  '0 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://<project-ref>.functions.supabase.co/reconcile-subscriptions',
+    headers := jsonb_build_object('x-cron-secret', current_setting('app.settings.fra_cron_secret', true))
+  );
+  $$
+);
+```
+
+### 6. Admin UI
+
+Wire `<EngineMetrics />` from `supabase-saas/client/EngineMetrics.tsx` into
+the host project's super-admin Admin page next to `<VaultKeyRotations />`.
