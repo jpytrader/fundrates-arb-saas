@@ -12,6 +12,11 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { z } from 'npm:zod@3.23.8';
+import {
+  createHyperliquidAdapter,
+  createOKXAdapter,
+  DEFAULT_CONFIG,
+} from 'npm:@vireson/funding-rate-arb@^0.1.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,33 +38,42 @@ function json(body: unknown, status = 200) {
   });
 }
 
-async function probeExchange(
+/**
+ * Real signed smoke test — uses the same adapter the engine uses (F2).
+ * Bad credentials (wrong key/secret, missing OKX passphrase, expired key,
+ * IP not whitelisted, …) are rejected before anything is written to Vault.
+ * There is no second signing implementation here — drift impossible.
+ */
+async function validateExchangeKeys(
   exchange: 'hyperliquid' | 'okx',
-  _apiKey: string,
-  _apiSecret: string,
-  _extra?: Record<string, unknown>,
-): Promise<boolean> {
-  // Lightweight read-only smoke test. We deliberately don't sign requests here —
-  // a 200 from the public info endpoint proves connectivity at minimum, and the
-  // first signed call by the engine will surface bad-secret errors loudly.
-  // Tighten this per-exchange when the engine exposes a `validateKeys()` helper.
+  apiKey: string,
+  apiSecret: string,
+  extra?: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
     if (exchange === 'hyperliquid') {
-      const r = await fetch('https://api.hyperliquid.xyz/info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'meta' }),
-      });
-      return r.ok;
+      const adapter = createHyperliquidAdapter(
+        {
+          apiKey,
+          apiSecret,
+          walletPrivateKey: (extra?.walletPrivateKey as string | undefined) ?? apiSecret,
+        },
+        DEFAULT_CONFIG,
+      );
+      return await adapter.validateKeys!();
     }
-    if (exchange === 'okx') {
-      const r = await fetch('https://www.okx.com/api/v5/public/time');
-      return r.ok;
-    }
-  } catch {
-    return false;
+    const adapter = createOKXAdapter(
+      {
+        apiKey,
+        apiSecret,
+        passphrase: (extra?.passphrase as string | undefined) ?? '',
+      },
+      DEFAULT_CONFIG,
+    );
+    return await adapter.validateKeys!();
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
   }
-  return false;
 }
 
 Deno.serve(async (req) => {
