@@ -334,13 +334,15 @@ async function tickUser(
 
   // (7) Mirror events
   if (events.length > 0) {
-    await supabase.from('fra_events').insert(
+    // S4 — idempotent under retries via uq_fra_events_user_type_ts.
+    await supabase.from('fra_events').upsert(
       events.map((e) => ({
         user_id: row.user_id,
         type: e.type,
         timestamp: new Date(e.timestamp).toISOString(),
         data: { ...(e.data as Record<string, unknown>), source: 'server' },
       })),
+      { onConflict: 'user_id,type,timestamp', ignoreDuplicates: true },
     );
   }
 }
