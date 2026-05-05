@@ -103,8 +103,6 @@ BEGIN
 END $$;
 -- service_role inserts via implicit grant.
 
-COMMIT;
-
 -- Replace advisory wrappers (HTTP RPC sessions don't persist, so use a
 -- TTL'd lock table — same effect, simpler reasoning).
 DROP FUNCTION IF EXISTS public.fra_try_advisory_lock(text);
@@ -144,3 +142,5 @@ AS $$ DELETE FROM public.fra_engine_locks WHERE key = p_key; $$;
 
 REVOKE ALL ON FUNCTION public.fra_try_lock(text, int) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.fra_unlock(text)        FROM PUBLIC, anon, authenticated;
+
+COMMIT;
