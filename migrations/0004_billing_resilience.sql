@@ -104,3 +104,21 @@ END $$;
 -- service_role inserts via implicit grant.
 
 COMMIT;
+
+-- ─────── S4: advisory-lock helper RPC (reachable by service_role) ──────────
+CREATE OR REPLACE FUNCTION public.fra_try_advisory_lock(p_key text)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$ SELECT pg_try_advisory_lock(hashtext(p_key)); $$;
+
+CREATE OR REPLACE FUNCTION public.fra_advisory_unlock(p_key text)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$ SELECT pg_advisory_unlock(hashtext(p_key)); $$;
+
+REVOKE ALL ON FUNCTION public.fra_try_advisory_lock(text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.fra_advisory_unlock(text)  FROM PUBLIC, anon, authenticated;
