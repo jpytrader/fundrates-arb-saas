@@ -9,7 +9,7 @@
     "db:push": "supabase db push"
   },
   "dependencies": {
-    "@vireson/funding-rate-arb": "*",
+    "@vireson/fundrates-arb": "*",
     "@supabase/supabase-js": "^2.45.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
