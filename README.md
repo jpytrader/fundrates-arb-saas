@@ -1,6 +1,6 @@
 # Funding Rate Arbitrage — Supabase SaaS
 
-A standalone wrapper that turns `@vireson/funding-rate-arb` into a multi-tenant cloud
+A standalone wrapper that turns `@jpytrader/fundrates-arb` into a multi-tenant cloud
 service backed by Supabase. The component itself is **never modified** — this folder
 only consumes it as a dependency and supplies an external `SupabaseStateStore`
 adapter plus a server-side engine runner.
@@ -34,7 +34,7 @@ adapter plus a server-side engine runner.
 ```
 supabase-saas/
 ├── README.md                          ← you are here
-├── package.json                       ← consumes @vireson/funding-rate-arb
+├── package.json                       ← consumes @jpytrader/fundrates-arb
 ├── tsconfig.json
 ├── .env.example
 ├── client/
