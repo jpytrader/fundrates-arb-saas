@@ -3,45 +3,63 @@ name: test — E2E & open release PR
 on:
   push:
     branches: [test]
+  workflow_dispatch:
 
-permissions:
-  contents: read
-  pull-requests: write
-  packages: read
+concurrency:
+  group: saas-test
+  cancel-in-progress: true
 
 jobs:
-  e2e:
-    runs-on: ubuntu-latest
-    env:
-      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
-      OWNER: ${{ github.repository_owner }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Resolve fundrates-arb @test
-        run: node scripts/install-arb.mjs
-      - run: bun install
-      - run: bun run build
-      - run: bun run test --if-present
-      - run: bun run test:e2e --if-present
-
-  open-release-pr:
-    needs: e2e
+  e2e-and-pr:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
+    env:
+      GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
+      ARB_OWNER: ${{ github.repository_owner }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: peter-evans/create-pull-request@v6
+          token: ${{ secrets.CI_PAT }}
+
+      - uses: ./.github/actions/ensure-branch
         with:
-          base: main
+          branch: main
+          base: dev
+          protect: 'true'
+          token: ${{ secrets.CI_PAT }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Resolve and install fundrates-arb (test channel)
+        env:
+          ARB_BRANCH: test
+        run: node scripts/install-arb.mjs
+
+      - run: bun run test:e2e --if-present
+
+      - name: Capture pinned arb SHA for main deploy
+        id: pin
+        run: |
+          ARB_SHA=$(git -C node_modules/fundrates-arb rev-parse HEAD 2>/dev/null || true)
+          echo "arb_sha=${ARB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Pinned arb SHA: ${ARB_SHA}"
+
+      - name: Open or update PR test -> main
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.CI_PAT }}
           branch: test
-          title: "Release: candidate from test"
+          base: main
+          title: 'Release: promote test -> main'
           body: |
-            Automated release PR from `test` → `main`.
-            Merging promotes this build to production and pins
-            `@OWNER/fundrates-arb@latest` for the production deploy.
-          labels: release
+            Automated promotion PR.
+            E2E passed on `test` @ ${{ github.sha }}.
+            Pinned `fundrates-arb` SHA: `${{ steps.pin.outputs.arb_sha }}`
+
+            Set repo variable `ARB_PINNED_SHA` to the SHA above before merging
+            so the main-branch deploy installs the exact same arb commit.
