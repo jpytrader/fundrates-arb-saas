@@ -1,5 +1,5 @@
 {
-  "name": "@vireson/funding-rate-arb-saas",
+  "name": "@jpytrader/fundrates-arb-saas",
   "version": "0.1.0",
   "private": true,
   "description": "Supabase SaaS wrapper for @vireson/funding-rate-arb — provides external SupabaseStateStore adapter and server-side engine runner",
@@ -9,7 +9,7 @@
     "db:push": "supabase db push"
   },
   "dependencies": {
-    "@vireson/fundrates-arb": "*",
+    "@jpytrader/fundrates-arb": "*",
     "@supabase/supabase-js": "^2.45.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
