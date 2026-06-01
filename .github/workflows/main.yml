@@ -1,0 +1,29 @@
+name: main — production deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: saas-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Resolve fundrates-arb @latest
+        run: node scripts/install-arb.mjs
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      # Add your deploy step here (Cloudflare/Vercel/etc).
+      # - run: bunx wrangler deploy
