@@ -1,0 +1,46 @@
+name: dev — build & promote to test
+
+on:
+  push:
+    branches: [dev]
+
+concurrency:
+  group: saas-dev
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Resolve fundrates-arb @dev
+        run: node scripts/install-arb.mjs
+
+      - run: bun install
+      - run: bun run lint
+      - run: bun run build
+
+      - name: Push build output to test branch
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B test
+          # Include source + compiled output so the test->main PR shows the real diff
+          git add -f .output dist package.json package-lock.json bun.lock 2>/dev/null || true
+          git commit -m "build(dev->test): ${GITHUB_SHA::7}" || echo "no changes"
+          git push origin test --force
