@@ -3,27 +3,37 @@ name: main — production deploy
 on:
   push:
     branches: [main]
-
-permissions:
-  contents: read
-  packages: read
+  workflow_dispatch:
 
 concurrency:
-  group: saas-prod
+  group: saas-main
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
-      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
-      OWNER: ${{ github.repository_owner }}
+      GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
+      ARB_OWNER: ${{ github.repository_owner }}
+      # Set this repo variable (Settings -> Secrets and variables -> Actions -> Variables)
+      # to the arb SHA recorded in the test -> main PR description. Falls back to #main.
+      ARB_PINNED_SHA: ${{ vars.ARB_PINNED_SHA }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: oven-sh/setup-bun@v2
-      - name: Resolve fundrates-arb @latest
+        with:
+          bun-version: latest
+
+      - name: Install fundrates-arb at pinned SHA
+        env:
+          ARB_BRANCH: main
         run: node scripts/install-arb.mjs
-      - run: bun install --frozen-lockfile
+
       - run: bun run build
-      # Add your deploy step here (Cloudflare/Vercel/etc).
-      # - run: bunx wrangler deploy
+
+      # Replace with your actual deploy step (Cloudflare, Vercel, etc.)
+      - name: Deploy
+        run: echo "Deploy production build here."
