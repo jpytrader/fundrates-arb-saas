@@ -1,0 +1,47 @@
+name: test — E2E & open release PR
+
+on:
+  push:
+    branches: [test]
+
+permissions:
+  contents: read
+  pull-requests: write
+  packages: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Resolve fundrates-arb @test
+        run: node scripts/install-arb.mjs
+      - run: bun install
+      - run: bun run build
+      - run: bun run test --if-present
+      - run: bun run test:e2e --if-present
+
+  open-release-pr:
+    needs: e2e
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: peter-evans/create-pull-request@v6
+        with:
+          base: main
+          branch: test
+          title: "Release: candidate from test"
+          body: |
+            Automated release PR from `test` → `main`.
+            Merging promotes this build to production and pins
+            `@OWNER/fundrates-arb@latest` for the production deploy.
+          labels: release
