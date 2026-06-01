@@ -1,46 +1,79 @@
-name: dev — build & promote to test
+name: dev — build & promote to test branch
 
 on:
   push:
     branches: [dev]
+  workflow_dispatch:
 
 concurrency:
   group: saas-dev
   cancel-in-progress: true
 
-permissions:
-  contents: write
-  packages: read
-
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
-      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
-      OWNER: ${{ github.repository_owner }}
+      GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
+      ARB_OWNER: ${{ github.repository_owner }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.CI_PAT }}
+
+      - uses: ./.github/actions/ensure-branch
+        with:
+          branch: test
+          base: dev
+          protect: 'true'
+          token: ${{ secrets.CI_PAT }}
+
+      - uses: ./.github/actions/ensure-branch
+        with:
+          branch: main
+          base: dev
+          protect: 'true'
+          token: ${{ secrets.CI_PAT }}
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - name: Resolve fundrates-arb @dev
+      - name: Resolve and install fundrates-arb (dev channel)
+        env:
+          ARB_BRANCH: dev
         run: node scripts/install-arb.mjs
 
-      - run: bun install
-      - run: bun run lint
+      - run: bun run lint --if-present
+      - run: bun run test --if-present
       - run: bun run build
 
       - name: Push build output to test branch
+        env:
+          GH_TOKEN: ${{ secrets.CI_PAT }}
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B test
-          # Include source + compiled output so the test->main PR shows the real diff
-          git add -f .output dist package.json package-lock.json bun.lock 2>/dev/null || true
-          git commit -m "build(dev->test): ${GITHUB_SHA::7}" || echo "no changes"
-          git push origin test --force
+          set -euo pipefail
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          ARB_SHA=$(node -e "const l=require('./bun.lock');process.stdout.write(JSON.stringify(l).match(/[0-9a-f]{40}/)?.[0]||'')" 2>/dev/null || true)
+
+          WORK=$(mktemp -d)
+          git worktree add "$WORK" test
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            ./ "$WORK/"
+
+          cd "$WORK"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to publish to test."
+          else
+            MSG="build: dev@${SHA_SHORT}"
+            [ -n "$ARB_SHA" ] && MSG="${MSG} (arb=${ARB_SHA})"
+            git -c user.email="ci@users.noreply.github.com" \
+                -c user.name="ci-bot" \
+              commit -m "$MSG"
+            git push origin test
+          fi
