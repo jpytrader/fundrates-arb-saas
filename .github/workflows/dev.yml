@@ -35,6 +35,9 @@ jobs:
 
       - name: Resolve and install fundrates-arb
         run: node scripts/install-arb.mjs
+      
+      - name: Debug downloaded package structure
+        run: ls -R node_modules/@jpytrader/fundrates-arb
 
       - run: bun run lint
       - run: bun run test --if-present
