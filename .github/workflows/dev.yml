@@ -41,9 +41,17 @@ jobs:
 
       - run: bun run lint
       - run: bun run test --if-present
-      - run: bun run build
+      
+      # 1. Compile artifacts and explicitly locate output files
+      - name: Execute compilation build
+        run: |
+          bun run build
+          echo "=== LOCATING COMPILED BUILD OUTPUTS ==="
+          # Scans the directory to locate your compiled javascript distribution targets
+          find . -type d -name "dist" -o -name "build" -o -name "out"
+          find . -name "ExampleApp.js" -o -name "ExampleApp.tsx"
 
-      # FIXED: Wipes target workspace completely and copies ONLY compiled and configuration assets
+      # 2. Synchronize ONLY the clean distribution footprint to the test branch
       - name: Push build output and workflows to test branch
         env:
           GH_TOKEN: ${{ secrets.CI_PAT }}
@@ -51,34 +59,46 @@ jobs:
           set -euo pipefail
           SHA_SHORT=$(git rev-parse --short HEAD)
 
-          # Ensure stale worktree metadata is cleared out
-          git worktree prune || true
+          # Prepare isolation directory
+          mkdir -p ../test-bundle-payload
           
-          # FIXED: Create the temporary directory inside the current git workspace root
+          # Identify where the compiled build files live and stage them
+          if [ -d "./dist" ]; then
+            cp -r ./dist ../test-bundle-payload/
+          elif [ -d "./build" ]; then
+            cp -r ./build ../test-bundle-payload/dist
+          else
+            # If bun build dropped the file into root or a different outdir, bundle it manually into dist
+            mkdir -p ../test-bundle-payload/dist
+            find . -maxdepth 2 -name "*.js" -name "*.map" -exec cp {} ../test-bundle-payload/dist/ \; 2>/dev/null || true
+          fi
+
+          # Stage workflow automation and configurations
+          cp -r .github ../test-bundle-payload/
+          cp package.json package-lock.json .npmrc ../test-bundle-payload/ 2>/dev/null || true
+          cp *.md ../test-bundle-payload/ 2>/dev/null || true
+
+          # Mount the target worktree workspace
+          git worktree prune || true
           WORK="./.git_worktree_test"
           rm -rf "$WORK"
-          
           git worktree add "$WORK" test
 
-          # Deep-clean the worktree target destination folder 
-          find "$WORK" -maxdepth 1 ! -name '.' ! -name '.git' -exec rm -rf {} +
-
-          # Selectively copy only compiled production artifacts and workflow automation layers
-          cp -r dist "$WORK/"
-          cp -r .github "$WORK/"
-          
-          # Safely copy top-level configuration metadata
-          cp package.json package-lock.json .npmrc "$WORK/" 2>/dev/null || true
-          cp *.md "$WORK/" 2>/dev/null || true
-
-          # Move into the worktree directory safely
+          # Wipe out ALL files from the test branch tracking layer (removes all raw dev source code directories)
           cd "$WORK"
-          
+          git rm -rf . 2>/dev/null || rm -rf *
+          cd - > /dev/null
+
+          # Transfer the clean, verified staging payload into the worktree
+          cp -r ../test-bundle-payload/* "$WORK/"
+
+          # Commit changes to origin
+          cd "$WORK"
           git add -A
           if git diff --cached --quiet; then
             echo "No compiled delivery changes detected. Skipping branch update."
           else
-            git -c user.email="ci-bot@://github.com" \
+            git -c user.email="ci-bot@users.noreply.github.com" \
                 -c user.name="ci-bot" \
               commit -m "build: compile dev@${SHA_SHORT} (arb=v0.1.0)"
             git push origin test

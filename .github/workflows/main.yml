@@ -29,9 +29,10 @@ jobs:
 
           if [ -d ".github" ]; then
             echo "Workflows directory detected on production branch. Commencing isolation removal..."
-            git config user.email "ci-bot@users.noreply.github.com"
+            git config user.email "ci-bot@://github.com"
             git config user.name "ci-bot"
             
+            # Use git rm to tell Git to explicitly delete and track the removal of the folder
             git rm -rf .github
             git commit -m "chore: enforce clean production bundle boundaries (purged workflows)"
             git push origin main
