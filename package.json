@@ -7,7 +7,8 @@
     "typecheck": "tsc --noEmit",
     "deploy:functions": "supabase functions deploy fra-engine",
     "db:push": "supabase db push",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "build": "bun build ./src/index.ts --outdir ./dist"
   },
   "dependencies": {
     "fundrates-arb": "github:fortunerise007-ux/fundrates-arb#dev",
