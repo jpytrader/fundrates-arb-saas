@@ -15,11 +15,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      variables: write # Required for updating ARB_PINNED_SHA automatically via GitHub API
     env:
       GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
-      ARB_OWNER: ${{ github.repository_owner }}
-      GH_TOKEN: ${{ secrets.CI_PAT }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,39 +34,10 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Resolve and install fundrates-arb (test channel)
-        env:
-          ARB_BRANCH: test
+      - name: Resolve and install fundrates-arb
         run: node scripts/install-arb.mjs
 
       - run: bun run test:e2e --if-present
-
-      # FIXED: Extracted SHA from package.json metadata since tarballs have no .git directory
-      - name: Capture pinned arb SHA for main deploy
-        id: pin
-        run: |
-          ARB_SHA=$(node -e "try { console.log(require('./node_modules/fundrates-arb/package.json').gitHead || ''); } catch {}" 2>/dev/null || true)
-          if [ -z "$ARB_SHA" ]; then
-            # Fallback if gitHead isn't present: extract from the download redirect history
-            echo "Warning: gitHead missing. Resolving commit from reference tracking..."
-            ARB_SHA="test" 
-          fi
-          echo "arb_sha=${ARB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "Pinned arb SHA: ${ARB_SHA}"
-
-      # OPTIONAL: Automatically sets/updates the Repository Variable so nobody forgets!
-      - name: Update GitHub Actions Environment Variable
-        env:
-          GH_TOKEN: ${{ secrets.CI_PAT }}
-        run: |
-          if [ "${{ steps.pin.outputs.arb_sha }}" != "test" ]; then
-            gh api --method PATCH /repos/${{ github.repository }}/actions/variables/ARB_PINNED_SHA \
-              -f name='ARB_PINNED_SHA' \
-              -f value='${{ steps.pin.outputs.arb_sha }}' || \
-            gh api --method POST /repos/${{ github.repository }}/actions/variables \
-              -f name='ARB_PINNED_SHA' \
-              -f value='${{ steps.pin.outputs.arb_sha }}'
-          fi
 
       - name: Open or update PR test -> main
         uses: peter-evans/create-pull-request@v6
@@ -81,6 +49,4 @@ jobs:
           body: |
             Automated promotion PR.
             E2E passed on `test` @ ${{ github.sha }}.
-            Pinned `fundrates-arb` SHA: `${{ steps.pin.outputs.arb_sha }}`
-
-            *Note: ARB_PINNED_SHA has been automatically updated in your repository variables.*
+            Targeting locked version: `fundrates-arb@v0.1.0`.

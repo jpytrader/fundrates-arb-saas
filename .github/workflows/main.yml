@@ -16,8 +16,6 @@ jobs:
       contents: read
     env:
       GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
-      ARB_OWNER: ${{ github.repository_owner }}
-      ARB_PINNED_SHA: ${{ vars.ARB_PINNED_SHA }}
     steps:
       - uses: actions/checkout@v4
 
@@ -25,9 +23,7 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install fundrates-arb at pinned SHA
-        env:
-          ARB_BRANCH: main
+      - name: Install fundrates-arb
         run: node scripts/install-arb.mjs
 
       - run: bun run build

@@ -16,7 +16,6 @@ jobs:
       contents: write
     env:
       GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
-      ARB_OWNER: ${{ github.repository_owner }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,25 +33,19 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Resolve and install fundrates-arb (dev channel)
-        env:
-          ARB_BRANCH: dev
+      - name: Resolve and install fundrates-arb
         run: node scripts/install-arb.mjs
 
       - run: bun run lint
       - run: bun run test --if-present
       - run: bun run build
 
-      # Clarified and simplified without lockfile credential stripping hacks
       - name: Push build output to test branch
         env:
           GH_TOKEN: ${{ secrets.CI_PAT }}
         run: |
           set -euo pipefail
           SHA_SHORT=$(git rev-parse --short HEAD)
-          
-          # Reads the version/commit meta safely out of the resolved node module metadata
-          ARB_SHA=$(node -e "try { console.log(require('./node_modules/fundrates-arb/package.json').gitHead || ''); } catch {}" 2>/dev/null || true)
 
           WORK=$(mktemp -d)
           git worktree add "$WORK" test
@@ -66,10 +59,8 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to publish to test."
           else
-            MSG="build: dev@${SHA_SHORT}"
-            [ -n "$ARB_SHA" ] && MSG="${MSG} (arb=${ARB_SHA})"
-            git -c user.email="ci@users.noreply.github.com" \
+            git -c user.email="ci@://github.com" \
                 -c user.name="ci-bot" \
-              commit -m "$MSG"
+              commit -m "build: dev@${SHA_SHORT} (arb=v0.1.0)"
             git push origin test
           fi
