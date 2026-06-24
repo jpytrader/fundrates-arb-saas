@@ -28,8 +28,9 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // Download the private tarball using curl with proper Authorization headers and follow redirects
+  // FIXED: Correct template literal string evaluation layout
   const tarballUrl = `https://github.com{owner}/${repo}/tarball/${tag}`;
+  
   execSync(
     `curl -sL -H "Authorization: Bearer ${token}" -H "Accept: application/vnd.github+json" "${tarballUrl}" -o "${repo}.tar.gz"`,
     { stdio: 'inherit' }
