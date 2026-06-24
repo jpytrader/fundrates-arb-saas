@@ -39,17 +39,18 @@ jobs:
         run: |
           set -euo pipefail
           
-          # FORCE CLEAN COMPILATION CACHE: Deletes the broken lock file to clear Bun's memory
+          # Force delete old lock remnants
           rm -f bun.lock bun.lockb
           
-          # Allow Git rewrite configuration locally so Bun can see the repo structure if needed
-          git config --global url."https://x-access-token:${GH_DEP_TOKEN}@://github.com".insteadOf "https://://github.com"
+          # FIXED: Intercepts the strict SSH layout and forces it over your custom PAT authentication layer
+          git config --global url."https://x-access-token:${GH_DEP_TOKEN}@github.com/".insteadOf "git@github.com:"
+          git config --global url."https://x-access-token:${GH_DEP_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
           
-          # Run install to generate a fresh, pristine lockfile from the corrected package.json url
+          # Run install to generate a fresh lockfile safely
           bun install
           
-          # Clean up the temporary rewrite setting immediately
-          git config --global --unset-all url."https://x-access-token:${GH_DEP_TOKEN}@://github.com".insteadOf || true
+          # Clean up the temporary rewrite settings immediately
+          git config --global --unset-all url."https://x-access-token:${GH_DEP_TOKEN}@github.com/".insteadOf || true
           
           # Stage the newly generated lockfile
           git add bun.lock bun.lockb package.json 2>/dev/null || true
