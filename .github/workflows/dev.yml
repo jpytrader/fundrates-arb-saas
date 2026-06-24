@@ -56,11 +56,7 @@ jobs:
           ARB_OWNER: 'jpytrader'
           ARB_REPO: 'fundrates-arb'
           ARB_TAG: 'v0.1.0'
-        run: |
-          echo "=== DISK FILE VERIFICATION LAYER ==="
-          cat scripts/install-arb.mjs
-          echo "===================================="
-          node scripts/install-arb.mjs
+        run: node scripts/install-arb.mjs
       
       - name: Debug downloaded package structure
         run: ls -R node_modules/@jpytrader/fundrates-arb
@@ -109,4 +105,4 @@ jobs:
           
           # FIXED: Triggers test.yml via content-scoped repository webhooks
           echo "Dispatching signal payload to trigger test automation hook..."
-          gh api /repos/${{ github.repository }}/dispatches -F event_type="trigger-test-pipeline"
+          # gh api /repos/${{ github.repository }}/dispatches -F event_type="trigger-test-pipeline -F client_payload='{"ref": "test"}"

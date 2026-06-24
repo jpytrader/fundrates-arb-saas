@@ -3,8 +3,6 @@ name: test — E2E & open release PR
 on:
   push:
     branches: [test]
-  repository_dispatch:
-    types: [trigger-test-pipeline] # Catches the automated signal from dev branch
   workflow_dispatch:
 
 concurrency:
@@ -22,6 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: test
           fetch-depth: 0
           token: ${{ secrets.CI_PAT }}
 
