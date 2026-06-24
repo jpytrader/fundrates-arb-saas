@@ -30,13 +30,6 @@ jobs:
           protect: 'true'
           token: ${{ secrets.CI_PAT }}
 
-      - uses: ./.github/actions/ensure-branch
-        with:
-          branch: main
-          base: dev
-          protect: 'true'
-          token: ${{ secrets.CI_PAT }}
-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest

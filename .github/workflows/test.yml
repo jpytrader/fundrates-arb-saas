@@ -27,7 +27,7 @@ jobs:
       - uses: ./.github/actions/ensure-branch
         with:
           branch: main
-          base: dev
+          base: test
           protect: 'true'
           token: ${{ secrets.CI_PAT }}
 
