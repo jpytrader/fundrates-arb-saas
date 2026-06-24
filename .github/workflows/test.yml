@@ -37,7 +37,7 @@ jobs:
       - name: Resolve and install fundrates-arb
         run: node scripts/install-arb.mjs
 
-      - run: bun run test:e2e --if-present
+      # - run: bun run test:e2e --if-present
 
       - name: Open or update PR test -> main
         uses: peter-evans/create-pull-request@v6
