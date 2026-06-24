@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write
     env:
       GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
     steps:
@@ -34,6 +33,7 @@ jobs:
         with:
           bun-version: latest
 
+      # Auto-heal out-of-sync lockfiles on the cloud runner
       - name: Automate out-of-sync lockfile update
         run: |
           set -euo pipefail
@@ -43,7 +43,7 @@ jobs:
           git add bun.lock bun.lockb package.json 2>/dev/null || true
           if ! git diff --cached --quiet; then
             echo "Lockfile discrepancy detected. Committing fresh Bun lock matrix..."
-            git config user.email "ci-bot@users.noreply.github.com"
+            git config user.email "ci-bot@://github.com"
             git config user.name "ci-bot"
             git commit -m "chore: automated bun lockfile synchronization [skip ci]"
             git push origin dev
@@ -51,7 +51,6 @@ jobs:
             echo "Lockfile is verified clean."
           fi
 
-      # FIXED: Forces environment variables into the context and tracks exact runtime file states
       - name: Resolve and install fundrates-arb
         env:
           ARB_OWNER: 'jpytrader'
@@ -102,11 +101,12 @@ jobs:
           if git diff --cached --quiet; then
             echo "No compiled delivery changes detected."
           else
-            git -c user.email="ci-bot@users.noreply.github.com" \
+            git -c user.email="ci-bot@://github.com" \
                 -c user.name="ci-bot" \
               commit -m "build: compile dev@${SHA_SHORT} (arb=v0.1.0)"
             git push origin test --force
           fi
           
-          echo "Triggering test.yml automated deployment chain run..."
-          gh workflow run test.yml --ref test
+          # FIXED: Triggers test.yml via content-scoped repository webhooks
+          echo "Dispatching signal payload to trigger test automation hook..."
+          gh api /repos/${{ github.repository }}/dispatches -F event_type="trigger-test-pipeline"
