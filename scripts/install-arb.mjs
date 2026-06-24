@@ -30,7 +30,7 @@ try {
   fs.mkdirSync(targetDir, { recursive: true });
 
   // FIXED DEFINTIVELY: Uses bulletproof string addition to completely avoid bracket interpolation issues
-  const tarballUrl = 'https://github.com' + owner + '/' + repo + '/tarball/' + tag;
+  const tarballUrl = 'https://github.com/' + owner + '/' + repo + '/tarball/' + tag;
   console.log('Target API Download Location resolved to: ' + tarballUrl);
   
   // Download using curl with explicit header mapping structures
