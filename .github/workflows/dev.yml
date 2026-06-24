@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     env:
       GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
     steps:
@@ -33,36 +34,34 @@ jobs:
         with:
           bun-version: latest
 
-      # Auto-heal out-of-sync lockfiles on the cloud runner
       - name: Automate out-of-sync lockfile update
         run: |
           set -euo pipefail
-          
-          # Allow Git rewrite configuration locally so Bun can see the repo structure if needed
-          git config --global url."https://x-access-token:${GH_DEP_TOKEN}@://github.com".insteadOf "https://://github.com"
-          
-          # Run install to generate/migrate the lockfile safely
+          rm -f bun.lock bun.lockb
           bun install
           
-          # Clean up the temporary rewrite setting immediately
-          git config --global --unset-all url."https://x-access-token:${GH_DEP_TOKEN}@://github.com".insteadOf || true
-          
-          # FIXED: Stage potential new or modified lockfiles first so git status can see them
           git add bun.lock bun.lockb package.json 2>/dev/null || true
-          
-          # Check if there is anything staged for a commit
           if ! git diff --cached --quiet; then
             echo "Lockfile discrepancy detected. Committing fresh Bun lock matrix..."
-            git config user.email "ci-bot@://github.com"
+            git config user.email "ci-bot@users.noreply.github.com"
             git config user.name "ci-bot"
             git commit -m "chore: automated bun lockfile synchronization [skip ci]"
             git push origin dev
           else
-            echo "Lockfile is verified in sync with package dependencies."
+            echo "Lockfile is verified clean."
           fi
 
+      # FIXED: Forces environment variables into the context and tracks exact runtime file states
       - name: Resolve and install fundrates-arb
-        run: node scripts/install-arb.mjs
+        env:
+          ARB_OWNER: 'jpytrader'
+          ARB_REPO: 'fundrates-arb'
+          ARB_TAG: 'v0.1.0'
+        run: |
+          echo "=== DISK FILE VERIFICATION LAYER ==="
+          cat scripts/install-arb.mjs
+          echo "===================================="
+          node scripts/install-arb.mjs
       
       - name: Debug downloaded package structure
         run: ls -R node_modules/@jpytrader/fundrates-arb
@@ -84,22 +83,18 @@ jobs:
           
           git worktree add "$WORK" test
 
-          # Deep-clean the worktree target to isolate compiled distribution states
           cd "$WORK"
           git rm -rf . 2>/dev/null || rm -rf *
           cd - > /dev/null
 
-          # Explicitly copy structural requirements for staging evaluation
           cp -r dist "$WORK/"
           cp -r .github "$WORK/"
           
-          # NEW: Added workspace environment support blocks to staging output
           [ -d "scripts" ] && cp -r scripts "$WORK/"
           [ -d "migrations" ] && cp -r migrations "$WORK/"
           [ -d "edge-functions" ] && cp -r edge-functions "$WORK/"
           
-          # Maintain root configuration primitives
-          cp package.json package-lock.json .npmrc "$WORK/" 2>/dev/null || true
+          cp bun.lock bun.lockb package.json package-lock.json .npmrc "$WORK/" 2>/dev/null || true
           cp *.md "$WORK/" 2>/dev/null || true
 
           cd "$WORK"
@@ -107,8 +102,11 @@ jobs:
           if git diff --cached --quiet; then
             echo "No compiled delivery changes detected."
           else
-            git -c user.email="ci-bot@://github.com" \
+            git -c user.email="ci-bot@users.noreply.github.com" \
                 -c user.name="ci-bot" \
               commit -m "build: compile dev@${SHA_SHORT} (arb=v0.1.0)"
             git push origin test --force
           fi
+          
+          echo "Triggering test.yml automated deployment chain run..."
+          gh workflow run test.yml --ref test

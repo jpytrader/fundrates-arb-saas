@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Injects transient access credentials into the global Git network configuration,
- * maps dependencies securely against private tags, and forces file cleanup.
+ * Modular environment-driven downloader for private/public dependencies.
+ * Uses explicit string concatenation to bypass editor template variable mutations.
  */
 import { execSync } from 'node:child_process';
+import * as fs from 'node:fs';
 
 const token = process.env.GH_DEP_TOKEN;
 if (!token) {
@@ -11,26 +12,42 @@ if (!token) {
   process.exit(1);
 }
 
-try {
-  console.log('Configuring global Git rewriting layers for authenticated access...');
-  // Intercepts outgoing github.com traffic to inject your short-lived token seamlessly
-  execSync(`git config --global url."https://x-access-token:${token}@://github.com".insteadOf "https://://github.com"`);
+// Safely extract environment values passed directly from the GitHub Actions runner
+const owner = process.env.ARB_OWNER || 'jpytrader';
+const repo  = process.env.ARB_REPO  || 'fundrates-arb';
+const tag   = process.env.ARB_TAG   || 'v0.1.0';
 
-  console.log('Installing fundrates-arb release artifact...');
-  // Executes installation utilizing your frozen project lockfile configurations
-  // with --frozen-lockfile safety flag,
-  // Bun strictly forbids saving new lockfile configs to disk @ buildtime
-  // execSync('bun install --frozen-lockfile', { stdio: 'inherit' });
+try {
+  console.log('Step 1: Installing public manifest dependencies via Bun...');
   execSync('bun install', { stdio: 'inherit' });
 
+  console.log('Step 2: Downloading tarball archive via GitHub API...');
+  const targetDir = 'node_modules/@jpytrader/' + repo;
+  
+  // Isolate and prepare the target node_modules directories cleanly
+  fs.mkdirSync('node_modules/@jpytrader', { recursive: true });
+  fs.rmSync(targetDir, { recursive: true, force: true });
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  // FIXED: Explicitly includes the required forward slash and repos directory segment
+  const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + tag;
+  console.log('Target API Download Location resolved to: ' + tarballUrl);
+  
+  // Download using curl with explicit header mapping structures targeting the API
+  execSync(
+    'curl -sL -H "Authorization: Bearer ' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
+    { stdio: 'inherit' }
+  );
+
+  console.log('Step 3: Extracting package contents into target node_modules scope...');
+  // Extract archive and safely strip top-level directories created by GitHub
+  execSync('tar -xzf "' + repo + '.tar.gz" -C "' + targetDir + '" --strip-components=1', { stdio: 'inherit' });
+
+  // Clear up archive remnants
+  fs.unlinkSync(repo + '.tar.gz');
+  console.log('SUCCESS: Dependency successfully resolved and mounted!');
+
 } catch (error) {
-  console.error('Installation execution context halted:', error.message);
+  console.error('CRITICAL ERROR: Failed to resolve repository bundle:', error.message);
   process.exit(1);
-} finally {
-  console.log('Wiping temporary global credential records...');
-  try {
-    execSync('git config --global --unset-all url."https://x-access-token:${token}@://github.com".insteadOf');
-  } catch (err) {
-    // Fails silently if configurations were already dropped
-  }
 }

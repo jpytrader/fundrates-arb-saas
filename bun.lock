@@ -1,0 +1,77 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 0,
+  "workspaces": {
+    "": {
+      "name": "@jpytrader/fundrates-arb",
+      "dependencies": {
+        "@supabase/supabase-js": "^2.45.0",
+        "react": "^18.3.0",
+        "react-dom": "^18.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^18.3.0",
+        "@types/react-dom": "^18.3.0",
+        "oxlint": "^0.15.0",
+        "typescript": "^5.5.0",
+      },
+    },
+  },
+  "packages": {
+    "@oxlint/darwin-arm64": ["@oxlint/darwin-arm64@0.15.15", "", { "os": "darwin", "cpu": "arm64" }, "sha512-7GOyGM6D36lUhsOvavAVpF72SycPVG0Enunx0bzv8g0+9TklzOSFN3FJlZjLst14VPdZWujZMLgkQC7tOp+Rwg=="],
+
+    "@oxlint/darwin-x64": ["@oxlint/darwin-x64@0.15.15", "", { "os": "darwin", "cpu": "x64" }, "sha512-pbrnYFwMn/fuX0z3IeQ05Nvo/b1zGxjmmWgkrQSDwYHxBxP6NT41hk1pmqkcA+v53xk9wvOa/6vBBI/U30F8Ow=="],
+
+    "@oxlint/linux-arm64-gnu": ["@oxlint/linux-arm64-gnu@0.15.15", "", { "os": "linux", "cpu": "arm64" }, "sha512-QWjG3YVsDlIvDTBUPmtPiyqP34ZQpFJqQh2JO94pBih11lFxQ0IGVMEXDhmW3WdiSFPZSJsZGzWynalM9eg+RA=="],
+
+    "@oxlint/linux-arm64-musl": ["@oxlint/linux-arm64-musl@0.15.15", "", { "os": "linux", "cpu": "arm64" }, "sha512-4W0YsmMSbNzzExOWhk+6zNfmJEmKFqSjFIn8CKLtYFvH8kF6KjoW4/0HNsDNYW5Fz+KOut/2JgkvxAiKH+r0zA=="],
+
+    "@oxlint/linux-x64-gnu": ["@oxlint/linux-x64-gnu@0.15.15", "", { "os": "linux", "cpu": "x64" }, "sha512-agP3e+eQ6tE5tqN6VI4Uukx2yvjwYFjtrDMcB19J7PmGOaFRwuMuT0sNWK/9guvhuS9aCINNZTi3kEhMy9Qgng=="],
+
+    "@oxlint/linux-x64-musl": ["@oxlint/linux-x64-musl@0.15.15", "", { "os": "linux", "cpu": "x64" }, "sha512-L2qE9NhhUafsJOO4pofLx/0hW5IB0sfJa6bS85q0j+ySaI0f3CxMaAadrZLFSuqHWB3oF18B5yvzaPWsc2ohbQ=="],
+
+    "@oxlint/win32-arm64": ["@oxlint/win32-arm64@0.15.15", "", { "os": "win32", "cpu": "arm64" }, "sha512-B7f4VAS/E78n8zy6XZlNeyYOtWTel4BJn/22Ap2yEAlNzO34ot8dGfpLk6MqTUWJrRnARwVBVmc3wRVrsOT5yg=="],
+
+    "@oxlint/win32-x64": ["@oxlint/win32-x64@0.15.15", "", { "os": "win32", "cpu": "x64" }, "sha512-ZM9T3/OpaQ3qvrk/VuHO2EQmhNH4cOZdr/b/Ju9VKwBr+ahhqMn3W5srrplWQWxfsb0yd1yBj7iD0jdAps2iLg=="],
+
+    "@supabase/auth-js": ["@supabase/auth-js@2.108.2", "", { "dependencies": { "tslib": "2.8.1" } }, "sha512-tNaQmBgodDZwgB40mRwVbxFy8IDYwjdpcZ0BYrWiwlULCSQoJj4QoG4zgJT7QRPXcqipefNOzvO/qAu4dF98ag=="],
+
+    "@supabase/functions-js": ["@supabase/functions-js@2.108.2", "", { "dependencies": { "tslib": "2.8.1" } }, "sha512-RNUX8EiBy3iLwAX19jtRzLyePnl11/fHcgwDHLnpKcDSXt/5qBnh3LUwAtIjT21Q66QsmNUR2esrHziLCpNubw=="],
+
+    "@supabase/phoenix": ["@supabase/phoenix@0.4.4", "", {}, "sha512-Gt0pqoXuIqX/8dvG0OKp/wMCobXNH3klNbUPBNyOfN0YA1IswrM3HyWFMOPk1Jy+BRaIyDPcFx4jLBwHNmlyfQ=="],
+
+    "@supabase/postgrest-js": ["@supabase/postgrest-js@2.108.2", "", { "dependencies": { "tslib": "2.8.1" } }, "sha512-GQ28/Y8hk3CFmkb3kXH1h/AQx6JIYSQfO0CJMRVBcEKZoNy6C45cXAZ4fcJvRC5Id0cs6xnkUV0+c0rIocigsw=="],
+
+    "@supabase/realtime-js": ["@supabase/realtime-js@2.108.2", "", { "dependencies": { "@supabase/phoenix": "^0.4.2", "tslib": "2.8.1" } }, "sha512-aAGxCSUemZvQIibnCdvNvgaKib28I4rfrNjKbQ9cG1uBLwUsI7hVpGXgEbypCCDhLjQlDTAiJlu7rgljYUT73g=="],
+
+    "@supabase/storage-js": ["@supabase/storage-js@2.108.2", "", { "dependencies": { "iceberg-js": "^0.8.1", "tslib": "2.8.1" } }, "sha512-TVZPQxXGxY2+A6yTtm77zUHsh70lBhYUEaJL8RQC+BghcX/ygiMG/rmXrNVBce30/WAeNPa8FiG8HbqlGeV05g=="],
+
+    "@supabase/supabase-js": ["@supabase/supabase-js@2.108.2", "", { "dependencies": { "@supabase/auth-js": "2.108.2", "@supabase/functions-js": "2.108.2", "@supabase/postgrest-js": "2.108.2", "@supabase/realtime-js": "2.108.2", "@supabase/storage-js": "2.108.2" } }, "sha512-hFhnPveb5JQg4a0QYicM0swT253YHMdfeRAl2BKHOlI5VAzuHxUGSr8RbwNLYNPauWOgQMS1H8sz8bvYlgwUfQ=="],
+
+    "@types/react": ["@types/react@18.3.31", "", { "dependencies": { "@types/prop-types": "*", "csstype": "^3.2.2" } }, "sha512-vfEqpXTvwT91yhmwdfouStN2hSKwTvyRs8qpLfADyrq/kxDw0hZM7Wk9Ug1FELj8hIby+S/+kQCSRFF32nv2Qw=="],
+
+    "@types/react-dom": ["@types/react-dom@18.3.7", "", { "peerDependencies": { "@types/react": "^18.0.0" } }, "sha512-MEe3UeoENYVFXzoXEWsvcpg6ZvlrFNlOQ7EOsvhI3CfAXwzPfO8Qwuxd40nepsYKqyyVQnTdEfv68q91yLcKrQ=="],
+
+    "csstype": ["csstype@3.2.3", "", {}, "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="],
+
+    "iceberg-js": ["iceberg-js@0.8.1", "", {}, "sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA=="],
+
+    "js-tokens": ["js-tokens@4.0.0", "", {}, "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ=="],
+
+    "loose-envify": ["loose-envify@1.4.0", "", { "dependencies": { "js-tokens": "^3.0.0 || ^4.0.0" }, "bin": { "loose-envify": "cli.js" } }, "sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q=="],
+
+    "oxlint": ["oxlint@0.15.15", "", { "optionalDependencies": { "@oxlint/darwin-arm64": "0.15.15", "@oxlint/darwin-x64": "0.15.15", "@oxlint/linux-arm64-gnu": "0.15.15", "@oxlint/linux-arm64-musl": "0.15.15", "@oxlint/linux-x64-gnu": "0.15.15", "@oxlint/linux-x64-musl": "0.15.15", "@oxlint/win32-arm64": "0.15.15", "@oxlint/win32-x64": "0.15.15" }, "bin": { "oxlint": "bin/oxlint", "oxc_language_server": "bin/oxc_language_server" } }, "sha512-oQNc1mAHrrbKiXyKJMGs9VCZfwGfLy7YiQKa4qupi71X/u4xyWqOh36YKXqWOXnmm2y7vfWFpGZlhJPAa9tMqA=="],
+
+    "react": ["react@18.3.1", "", { "dependencies": { "loose-envify": "^1.1.0" } }, "sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ=="],
+
+    "react-dom": ["react-dom@18.3.1", "", { "dependencies": { "loose-envify": "^1.1.0", "scheduler": "^0.23.2" }, "peerDependencies": { "react": "^18.3.1" } }, "sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw=="],
+
+    "scheduler": ["scheduler@0.23.2", "", { "dependencies": { "loose-envify": "^1.1.0" } }, "sha512-UOShsPwz7NrMUqhR6t0hWjFduvOzbtv7toDH1/hIrfRNIDBnnBWd0CwJTGvTpngVlmwGCdP9/Zl/tVrDqcuYzQ=="],
+
+    "tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
+
+    "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@types/react/@types/prop-types": ["@types/prop-types@file:node_modules/@types/prop-types", {}],
+  }
+}

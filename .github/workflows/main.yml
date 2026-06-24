@@ -3,7 +3,7 @@ name: main — production deploy
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+  workflow_dispatch: # Allows explicit cross-workflow chain calling
 
 concurrency:
   group: saas-main

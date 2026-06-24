@@ -3631,7 +3631,19 @@ var require_jsx_dev_runtime = __commonJS((exports, module) => {
   }
 });
 
-// node_modules/@supabase/functions-js/node_modules/tslib/tslib.es6.mjs
+// node_modules/tslib/tslib.es6.mjs
+function __rest(s, e) {
+  var t = {};
+  for (var p in s)
+    if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+      t[p] = s[p];
+  if (s != null && typeof Object.getOwnPropertySymbols === "function")
+    for (var i = 0, p = Object.getOwnPropertySymbols(s);i < p.length; i++) {
+      if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+        t[p[i]] = s[p[i]];
+    }
+  return t;
+}
 function __awaiter(thisArg, _arguments, P, generator) {
   function adopt(value) {
     return value instanceof P ? value : new P(function(resolve) {
@@ -8847,20 +8859,6 @@ var StorageClient = class extends StorageBucketApi {
     return new StorageAnalyticsClient(this.url + "/iceberg", this.headers, this.fetch);
   }
 };
-
-// node_modules/@supabase/auth-js/node_modules/tslib/tslib.es6.mjs
-function __rest(s, e) {
-  var t = {};
-  for (var p in s)
-    if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
-      t[p] = s[p];
-  if (s != null && typeof Object.getOwnPropertySymbols === "function")
-    for (var i = 0, p = Object.getOwnPropertySymbols(s);i < p.length; i++) {
-      if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
-        t[p[i]] = s[p[i]];
-    }
-  return t;
-}
 
 // node_modules/@supabase/auth-js/dist/module/lib/version.js
 var version3 = "2.108.2";
