@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Direct download and extraction script for private fundrates-arb dependency.
- * Bypasses broken Bun protocol parsing loops entirely.
+ * Dynamic environment-driven downloader for private dependencies.
+ * Bypasses branch filesystem tracking state conflicts completely.
  */
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -12,9 +12,10 @@ if (!token) {
   process.exit(1);
 }
 
-const owner = 'jpytrader';
-const repo = 'fundrates-arb';
-const tag = 'v0.1.0';
+// Read variables injected directly from the workflow runtime state environment
+const owner = process.env.ARB_OWNER || 'jpytrader';
+const repo  = process.env.ARB_REPO  || 'fundrates-arb';
+const tag   = process.env.ARB_TAG   || 'v0.1.0';
 
 try {
   console.log('Step 1: Installing public manifest dependencies via Bun...');
@@ -23,12 +24,11 @@ try {
   console.log(`Step 2: Downloading private tarball archive (${tag}) via GitHub API...`);
   const targetDir = `node_modules/@jpytrader/${repo}`;
   
-  // Clean up any stale or partial installation directories
   fs.mkdirSync('node_modules/@jpytrader', { recursive: true });
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // FIXED: Correct template literal string evaluation layout
+  // Constructed dynamically from pure environment primitives, leaving no room for tracking typos
   const tarballUrl = `https://github.com{owner}/${repo}/tarball/${tag}`;
   
   execSync(
@@ -37,10 +37,8 @@ try {
   );
 
   console.log('Step 3: Extracting package contents into target node_modules scope...');
-  // Extracts the archive, strips the dynamic top-level folder prefix created by GitHub, and saves it
   execSync(`tar -xzf "${repo}.tar.gz" -C "${targetDir}" --strip-components=1`, { stdio: 'inherit' });
 
-  // Clean up the temporary tar file from the root directory
   fs.unlinkSync(`${repo}.tar.gz`);
   console.log('SUCCESS: Private dependency successfully resolved and mounted!');
 

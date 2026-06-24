@@ -51,9 +51,17 @@ jobs:
             echo "Lockfile is verified clean."
           fi
 
-      # Triggers public installation AND securely downloads your private component
+      # FIXED: Forces environment variables into the context and tracks exact runtime file states
       - name: Resolve and install fundrates-arb
-        run: node scripts/install-arb.mjs
+        env:
+          ARB_OWNER: 'jpytrader'
+          ARB_REPO: 'fundrates-arb'
+          ARB_TAG: 'v0.1.0'
+        run: |
+          echo "=== DISK FILE VERIFICATION LAYER ==="
+          cat scripts/install-arb.mjs
+          echo "===================================="
+          node scripts/install-arb.mjs
       
       - name: Debug downloaded package structure
         run: ls -R node_modules/@jpytrader/fundrates-arb
