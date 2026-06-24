@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     env:
       GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
     steps:
@@ -39,16 +38,36 @@ jobs:
 
       # - run: bun run test:e2e --if-present
 
-      - name: Open or update PR test -> main
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.CI_PAT }}
-          branch: test
-          base: main
-          title: 'Release: promote test -> main'
-          body: |
-            Automated production promotion PR.
-            Verification cleared on staging channel tracking branch.
-            
-            *Content Enforcement Note:*
-            The production release pipeline will remove the `.github/` workflow automation directory from the `main` branch.
+      - name: Sync clean production artifacts to main branch
+        env:
+          GH_TOKEN: ${{ secrets.CI_PAT }}
+        run: |
+          set -euo pipefail
+          SHA_SHORT=$(git rev-parse --short HEAD)
+
+          git worktree prune || true
+          WORK="./.git_worktree_main"
+          rm -rf "$WORK"
+          
+          git worktree add "$WORK" main
+
+          # Wipe out ALL files from the main branch tracking layer
+          cd "$WORK"
+          git rm -rf . 2>/dev/null || rm -rf *
+          cd - > /dev/null
+
+          # Copy everything from test EXCEPT the .github workflow directory
+          cp -r dist "$WORK/"
+          cp package.json package-lock.json .npmrc "$WORK/" 2>/dev/null || true
+          cp *.md "$WORK/" 2>/dev/null || true
+
+          cd "$WORK"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to promote to main branch."
+          else
+            git -c user.email="ci-bot@://github.com" \
+                -c user.name="ci-bot" \
+              commit -m "release: promote test@${SHA_SHORT} to production"
+            git push origin main --force
+          fi
