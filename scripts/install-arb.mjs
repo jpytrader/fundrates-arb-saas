@@ -18,6 +18,8 @@ try {
 
   console.log('Installing fundrates-arb release artifact...');
   // Executes installation utilizing your frozen project lockfile configurations
+  // with --frozen-lockfile safety flag, Bun strictly forbids saving new lockfile configs to disk @ buildtime
+  // execSync('bun install --frozen-lockfile', { stdio: 'inherit' });
   execSync('bun install --frozen-lockfile', { stdio: 'inherit' });
 
 } catch (error) {

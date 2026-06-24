@@ -33,9 +33,6 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Resolve and install fundrates-arb
-        run: node scripts/install-arb.mjs
-
       # Auto-heal out-of-sync lockfiles on the cloud runner
       - name: Automate out-of-sync lockfile update
         run: |
@@ -56,6 +53,8 @@ jobs:
             echo "Lockfile is verified in sync with package dependencies."
           fi
 
+      - name: Resolve and install fundrates-arb
+        run: node scripts/install-arb.mjs
       
       - name: Debug downloaded package structure
         run: ls -R node_modules/@jpytrader/fundrates-arb
