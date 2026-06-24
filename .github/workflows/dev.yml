@@ -33,6 +33,34 @@ jobs:
         with:
           bun-version: latest
 
+      # Auto-heal out-of-sync lockfiles on the cloud runner
+      - name: Automate out-of-sync lockfile update
+        run: |
+          set -euo pipefail
+          
+          # Allow Git rewrite configuration locally so Bun can see the repo structure if needed
+          git config --global url."https://x-access-token:${GH_DEP_TOKEN}@://github.com".insteadOf "https://://github.com"
+          
+          # Run install to generate/migrate the lockfile safely
+          bun install
+          
+          # Clean up the temporary rewrite setting immediately
+          git config --global --unset-all url."https://x-access-token:${GH_DEP_TOKEN}@://github.com".insteadOf || true
+          
+          # FIXED: Stage potential new or modified lockfiles first so git status can see them
+          git add bun.lock bun.lockb package.json 2>/dev/null || true
+          
+          # Check if there is anything staged for a commit
+          if ! git diff --cached --quiet; then
+            echo "Lockfile discrepancy detected. Committing fresh Bun lock matrix..."
+            git config user.email "ci-bot@://github.com"
+            git config user.name "ci-bot"
+            git commit -m "chore: automated bun lockfile synchronization [skip ci]"
+            git push origin dev
+          else
+            echo "Lockfile is verified in sync with package dependencies."
+          fi
+
       - name: Resolve and install fundrates-arb
         run: node scripts/install-arb.mjs
       
