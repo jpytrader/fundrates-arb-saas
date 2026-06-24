@@ -35,6 +35,27 @@ jobs:
 
       - name: Resolve and install fundrates-arb
         run: node scripts/install-arb.mjs
+
+      # Auto-heal out-of-sync lockfiles on the cloud runner
+      - name: Automate out-of-sync lockfile update
+        run: |
+          set -euo pipefail
+          
+          # Run install without frozen flags to let Bun successfully build the lockfile
+          bun install
+          
+          # If Bun modified the lockfile structure, commit it right back to dev branch
+          if [ -n "$(git status --porcelain bun.lock bun.lockb package.json 2>/dev/null)" ]; then
+            echo "Lockfile discrepancy detected. Committing fresh Bun lock matrix..."
+            git config user.email "ci-bot@users.noreply.github.com"
+            git config user.name "ci-bot"
+            git add bun.lock bun.lockb package.json 2>/dev/null || true
+            git commit -m "chore: automated bun lockfile synchronization [skip ci]"
+            git push origin dev
+          else
+            echo "Lockfile is verified in sync with package dependencies."
+          fi
+
       
       - name: Debug downloaded package structure
         run: ls -R node_modules/@jpytrader/fundrates-arb
