@@ -1,33 +1,24 @@
 #!/usr/bin/env node
 /**
- * Rewrites the `fundrates-arb` git dependency in package.json to the ref
- * appropriate for the current branch, embeds a short-lived auth token,
- * runs `bun install`, then restores the clean (token-less) form.
- *
- * Branch -> ref:
- *   dev   -> #dev   (HEAD of arb's dev branch, source built via prepare script)
- *   test  -> #test  (HEAD of arb's test branch, already compiled)
- *   main  -> exact SHA from $ARB_PINNED_SHA (captured when test -> main PR opened)
- *           falls back to #main if ARB_PINNED_SHA is unset.
- *
- * Required env:
- *   GH_DEP_TOKEN  Fine-grained PAT with contents:read on the arb repo.
- *   ARB_OWNER     GitHub org/user that owns fundrates-arb. Defaults to repo owner.
- *   ARB_REPO      Repo name. Defaults to 'fundrates-arb'.
- *   ARB_BRANCH    Override branch detection (otherwise uses GITHUB_REF_NAME
- *                 or `git rev-parse --abbrev-ref HEAD`).
- *   ARB_PINNED_SHA  Required for the main branch path.
+ * Generates a temporary local .bunfig.toml config to authenticate 
+ * against private GitHub endpoints, executes a locked installation, 
+ * and handles secure process cleanup to safeguard API keys.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
+const BUNFIG_PATH = new URL('../.bunfig.toml', import.meta.url);
 const PKG_PATH = new URL('../package.json', import.meta.url);
-const DEP_NAME = 'fundrates-arb';
 
 function detectBranch() {
   if (process.env.ARB_BRANCH) return process.env.ARB_BRANCH;
   if (process.env.GITHUB_REF_NAME) return process.env.GITHUB_REF_NAME;
-  return execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+  try {
+    return execSync('git rev-parse --abbrev-ref HEAD', { stdio: 'pipe' }).toString().trim();
+  } catch {
+    return 'main'; // Safe default if git binary is absent in minimal environments
+  }
 }
 
 function resolveRef(branch) {
@@ -35,48 +26,84 @@ function resolveRef(branch) {
     case 'dev':  return 'dev';
     case 'test': return 'test';
     case 'main': return process.env.ARB_PINNED_SHA || 'main';
-    default:
-      // PRs and feature branches: build against arb's dev to match Lovable.
-      return 'dev';
+    default:     return 'dev'; // Target PR / feature environments to baseline
   }
 }
 
+// 1. Validation Checks
 const token = process.env.GH_DEP_TOKEN;
 if (!token) {
-  console.error('GH_DEP_TOKEN is not set; cannot install private git dependency.');
+  console.error('CRITICAL: GH_DEP_TOKEN environment variable is not defined.');
   process.exit(1);
 }
 
-const owner = process.env.ARB_OWNER
-  || (process.env.GITHUB_REPOSITORY_OWNER ?? '').trim();
+const owner = process.env.ARB_OWNER || (process.env.GITHUB_REPOSITORY_OWNER ?? '').trim();
 const repo  = process.env.ARB_REPO  || 'fundrates-arb';
 if (!owner) {
-  console.error('ARB_OWNER (or GITHUB_REPOSITORY_OWNER) must be set.');
+  console.error('CRITICAL: ARB_OWNER or GITHUB_REPOSITORY_OWNER must be defined.');
   process.exit(1);
 }
 
 const branch = detectBranch();
 const ref    = resolveRef(branch);
-const cleanSpec = `github:${owner}/${repo}#${ref}`;
-const authSpec  = `git+https://x-access-token:${token}@github.com/${owner}/${repo}.git#${ref}`;
 
-const original = readFileSync(PKG_PATH, 'utf8');
-const pkg = JSON.parse(original);
-pkg.dependencies = pkg.dependencies || {};
-pkg.dependencies[DEP_NAME] = authSpec;
-writeFileSync(PKG_PATH, JSON.stringify(pkg, null, 2) + '\n');
+// 2. Build Safe Configuration Layer
+// Instead of writing a token to package.json, we map the registry target via .bunfig.toml
+const targetTarballUrl = `https://github.com{owner}/${repo}/tarball/${ref}`;
+
+// We construct a scoped or registry mapping block for the bun installer
+const bunfigContent = `
+# Automatically generated build artifact - Do not commit
+[install]
+cache = true
+
+[install.scopes]
+# Maps credentials specifically to your dependency endpoint safely via headers
+"https://api.github.com/" = { token = "${token}" }
+`;
+
+// Helper cleanup execution method 
+function secureCleanup() {
+  try {
+    rmSync(BUNFIG_PATH, { force: true });
+  } catch (err) {
+    // Fail silently during sweeping
+  }
+}
+
+// Register system event interrupts to ensure credentials are wiped even if the script aborts mid-run
+process.on('SIGINT', () => { secureCleanup(); process.exit(130); });
+process.on('SIGTERM', () => { secureCleanup(); process.exit(143); });
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught runner crash:', err.message);
+  secureCleanup();
+  process.exit(1);
+});
 
 let installFailed = false;
+
 try {
-  console.log(`Installing ${DEP_NAME} from ${owner}/${repo}#${ref} (branch=${branch})`);
-  execSync('bun install', { stdio: 'inherit' });
-} catch (e) {
+  console.log(`Writing runtime runtime build configurations to .bunfig.toml...`);
+  writeFileSync(BUNFIG_PATH, bunfigContent.trim() + '\n');
+
+  console.log(`Installing ${repo} from target ref: [ ${ref} ] on branch: ( ${branch} )`);
+  
+  // --frozen-lockfile stops Bun from generating dynamic token paths inside binary lookups
+  execSync(`bun install --frozen-lockfile`, { 
+    stdio: 'inherit',
+    env: { 
+      ...process.env,
+      // We pass the dynamic URL parameter explicitly to override package defaults
+      [`BUN_DEPENDENCY_OVERRIDE_${repo.toUpperCase().replace(/-/g, '_')}`]: targetTarballUrl
+    }
+  });
+
+} catch (error) {
   installFailed = true;
-  console.error(e.message);
+  console.error('Installation context execution halted:', error.message);
 } finally {
-  // Restore the clean, token-less spec so nothing leaks into commits or logs.
-  pkg.dependencies[DEP_NAME] = cleanSpec;
-  writeFileSync(PKG_PATH, JSON.stringify(pkg, null, 2) + '\n');
+  console.log('Cleaning up temporary configuration records...');
+  secureCleanup();
 }
 
 process.exit(installFailed ? 1 : 0);

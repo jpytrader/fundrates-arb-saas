@@ -17,8 +17,6 @@ jobs:
     env:
       GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
       ARB_OWNER: ${{ github.repository_owner }}
-      # Set this repo variable (Settings -> Secrets and variables -> Actions -> Variables)
-      # to the arb SHA recorded in the test -> main PR description. Falls back to #main.
       ARB_PINNED_SHA: ${{ vars.ARB_PINNED_SHA }}
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +32,5 @@ jobs:
 
       - run: bun run build
 
-      # Replace with your actual deploy step (Cloudflare, Vercel, etc.)
       - name: Deploy
         run: echo "Deploy production build here."

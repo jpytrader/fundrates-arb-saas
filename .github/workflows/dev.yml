@@ -43,13 +43,16 @@ jobs:
       - run: bun run test --if-present
       - run: bun run build
 
+      # Clarified and simplified without lockfile credential stripping hacks
       - name: Push build output to test branch
         env:
           GH_TOKEN: ${{ secrets.CI_PAT }}
         run: |
           set -euo pipefail
           SHA_SHORT=$(git rev-parse --short HEAD)
-          ARB_SHA=$(node -e "const l=require('./bun.lock');process.stdout.write(JSON.stringify(l).match(/[0-9a-f]{40}/)?.[0]||'')" 2>/dev/null || true)
+          
+          # Reads the version/commit meta safely out of the resolved node module metadata
+          ARB_SHA=$(node -e "try { console.log(require('./node_modules/fundrates-arb/package.json').gitHead || ''); } catch {}" 2>/dev/null || true)
 
           WORK=$(mktemp -d)
           git worktree add "$WORK" test
