@@ -3,7 +3,9 @@ name: main — production deploy
 on:
   push:
     branches: [main]
-  workflow_dispatch: # Allows explicit cross-workflow chain calling
+  repository_dispatch:
+    types: [trigger-production-deployment] # FIXED: Listens for test.yml webhook dispatch event
+  workflow_dispatch:
 
 concurrency:
   group: saas-main

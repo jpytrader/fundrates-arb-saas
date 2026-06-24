@@ -3,7 +3,9 @@ name: test — E2E & open release PR
 on:
   push:
     branches: [test]
-  workflow_dispatch: # Allows explicit cross-workflow chain calling
+  repository_dispatch:
+    types: [trigger-test-pipeline] # FIXED: Listens for dev.yml webhook dispatch event
+  workflow_dispatch:
 
 concurrency:
   group: saas-test
@@ -14,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write # Allows explicit automatic downstream runner triggers
     env:
       GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
     steps:
@@ -35,6 +36,10 @@ jobs:
           bun-version: latest
 
       - name: Resolve and install fundrates-arb
+        env:
+          ARB_OWNER: 'jpytrader'
+          ARB_REPO: 'fundrates-arb'
+          ARB_TAG: 'v0.1.0'
         run: node scripts/install-arb.mjs
 
       # - run: bun run test:e2e --if-present
@@ -52,19 +57,15 @@ jobs:
           
           git worktree add "$WORK" main
 
-          # Clear the deployment environment tracking target completely
           cd "$WORK"
           git rm -rf . 2>/dev/null || rm -rf *
           cd - > /dev/null
 
-          # Copy core compilation distribution payload
           cp -r dist "$WORK/"
           
-          # Direct filtering to include migrations and edge functions while ignoring scripts/.github
           [ -d "migrations" ] && cp -r migrations "$WORK/"
           [ -d "edge-functions" ] && cp -r edge-functions "$WORK/"
           
-          # Copy production manifest configuration items
           cp package.json package-lock.json .npmrc "$WORK/" 2>/dev/null || true
           cp *.md "$WORK/" 2>/dev/null || true
 
@@ -73,13 +74,12 @@ jobs:
           if git diff --cached --quiet; then
             echo "No production configuration changes detected."
           else
-            # FIXED: Corrected invalid email formatting
-            git -c user.email="ci-bot@users.noreply.github.com" \
+            git -c user.email="ci-bot@://github.com" \
                 -c user.name="ci-bot" \
               commit -m "release: promote test@${SHA_SHORT} to production"
             git push origin main --force
           fi
           
-          # FIXED: Forces the production deploy workflow file to run automatically immediately after the push
-          echo "Triggering main.yml automated production deployment run..."
-          gh workflow run main.yml --ref main
+          # FIXED: Triggers main.yml via content-scoped repository webhooks
+          echo "Dispatching signal payload to trigger production deployment..."
+          gh api /repos/${{ github.repository }}/dispatches -F event_type="trigger-production-deployment"
