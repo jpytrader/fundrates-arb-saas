@@ -2,9 +2,7 @@ name: main — production deploy
 
 on:
   push:
-    branches: [main]
-  repository_dispatch:
-    types: [trigger-production-deployment] # FIXED: Listens for test.yml webhook dispatch event
+    branches: [main] # Fires automatically when the promotion PR is merged into main
   workflow_dispatch:
 
 concurrency:
@@ -24,6 +22,7 @@ jobs:
       - name: Install production dependencies
         run: |
           echo "Resolving final production node modules dependencies payload..."
+          # Validated package-lock.json is present and un-mutated for deployment execution
           npm ci --omit=dev
 
       - name: Deploy
