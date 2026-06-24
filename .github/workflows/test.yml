@@ -47,6 +47,8 @@ jobs:
           base: main
           title: 'Release: promote test -> main'
           body: |
-            Automated promotion PR.
-            E2E passed on `test` @ ${{ github.sha }}.
-            Targeting locked version: `fundrates-arb@v0.1.0`.
+            Automated production promotion PR.
+            Verification cleared on staging channel tracking branch.
+            
+            *Content Enforcement Note:*
+            The production release pipeline will remove the `.github/` workflow automation directory from the `main` branch.

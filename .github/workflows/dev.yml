@@ -43,27 +43,37 @@ jobs:
       - run: bun run test --if-present
       - run: bun run build
 
-      - name: Push build output to test branch
+      # FIXED: Wipes target workspace completely and copies ONLY compiled and configuration assets
+      - name: Push build output and workflows to test branch
         env:
           GH_TOKEN: ${{ secrets.CI_PAT }}
         run: |
           set -euo pipefail
           SHA_SHORT=$(git rev-parse --short HEAD)
 
+          git worktree prune || true
           WORK=$(mktemp -d)
           git worktree add "$WORK" test
-          rsync -a --delete \
-            --exclude '.git' \
-            --exclude 'node_modules' \
-            ./ "$WORK/"
+
+          # Deep-clean the worktree to prevent raw development files from persisting
+          find "$WORK" -maxdepth 1 ! -name '.' ! -name '.git' -exec rm -rf {} +
+
+          # Selectively copy only production artifacts and workflow automation layers
+          cp -r dist "$WORK/"
+          cp -r .github "$WORK/"
+          
+          # Safely copy top-level configuration metadata
+          cp package.json package-lock.json .npmrc "$WORK/" 2>/dev/null || true
+          cp *.md "$WORK/" 2>/dev/null || true
 
           cd "$WORK"
           git add -A
           if git diff --cached --quiet; then
-            echo "No changes to publish to test."
+            echo "No compiled delivery changes detected. Skipping branch update."
           else
-            git -c user.email="ci@://github.com" \
+            # FIXED: Corrected invalid email formatting token string block
+            git -c user.email="ci-bot@users.noreply.github.com" \
                 -c user.name="ci-bot" \
-              commit -m "build: dev@${SHA_SHORT} (arb=v0.1.0)"
+              commit -m "build: compile dev@${SHA_SHORT} (arb=v0.1.0)"
             git push origin test
           fi
