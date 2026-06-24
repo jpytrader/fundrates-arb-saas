@@ -51,20 +51,26 @@ jobs:
           
           git worktree add "$WORK" main
 
-          # Wipe out ALL files from the main branch tracking layer
+          # Clear the deployment environment tracking target completely
           cd "$WORK"
           git rm -rf . 2>/dev/null || rm -rf *
           cd - > /dev/null
 
-          # Copy everything from test EXCEPT the .github workflow directory
+          # Copy core compilation distribution payload
           cp -r dist "$WORK/"
+          
+          # NEW: Direct filtering to include migrations and edge functions while ignoring scripts/.github
+          [ -d "migrations" ] && cp -r migrations "$WORK/"
+          [ -d "edge-functions" ] && cp -r edge-functions "$WORK/"
+          
+          # Copy production manifest configuration items
           cp package.json package-lock.json .npmrc "$WORK/" 2>/dev/null || true
           cp *.md "$WORK/" 2>/dev/null || true
 
           cd "$WORK"
           git add -A
           if git diff --cached --quiet; then
-            echo "No changes to promote to main branch."
+            echo "No production configuration changes detected."
           else
             git -c user.email="ci-bot@://github.com" \
                 -c user.name="ci-bot" \
