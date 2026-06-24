@@ -59,6 +59,8 @@ jobs:
 
       # OPTIONAL: Automatically sets/updates the Repository Variable so nobody forgets!
       - name: Update GitHub Actions Environment Variable
+        env:
+          GH_TOKEN: ${{ secrets.CI_PAT }}
         run: |
           if [ "${{ steps.pin.outputs.arb_sha }}" != "test" ]; then
             gh api --method PATCH /repos/${{ github.repository }}/actions/variables/ARB_PINNED_SHA \
