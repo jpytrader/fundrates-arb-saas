@@ -11,7 +11,7 @@
     "build": "bun build ./client/ExampleApp.tsx --outdir ./dist"
   },
   "dependencies": {
-    "@jpytrader/fundrates-arb": "github:jpytrader/fundrates-arb#dev",
+    "@jpytrader/fundrates-arb": "github:jpytrader/fundrates-arb#0.1.0",
     "@supabase/supabase-js": "^2.45.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
