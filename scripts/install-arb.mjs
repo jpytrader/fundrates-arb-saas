@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-#!/usr/bin/env node
 /**
  * Direct download and extraction script for private fundrates-arb dependency.
  * Bypasses broken Bun protocol parsing loops entirely.
