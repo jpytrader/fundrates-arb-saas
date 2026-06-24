@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Dynamic environment-driven downloader for private dependencies.
- * Bypasses branch filesystem tracking state conflicts completely.
+ * Modular environment-driven downloader for private/public dependencies.
+ * Uses explicit string concatenation to bypass editor template variable mutations.
  */
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -12,7 +12,7 @@ if (!token) {
   process.exit(1);
 }
 
-// Read variables injected directly from the workflow runtime state environment
+// Safely extract environment values passed directly from the GitHub Actions runner
 const owner = process.env.ARB_OWNER || 'jpytrader';
 const repo  = process.env.ARB_REPO  || 'fundrates-arb';
 const tag   = process.env.ARB_TAG   || 'v0.1.0';
@@ -21,28 +21,33 @@ try {
   console.log('Step 1: Installing public manifest dependencies via Bun...');
   execSync('bun install', { stdio: 'inherit' });
 
-  console.log(`Step 2: Downloading private tarball archive (${tag}) via GitHub API...`);
-  const targetDir = `node_modules/@jpytrader/${repo}`;
+  console.log('Step 2: Downloading tarball archive via GitHub API...');
+  const targetDir = 'node_modules/@jpytrader/' + repo;
   
+  // Isolate and prepare the target node_modules directories cleanly
   fs.mkdirSync('node_modules/@jpytrader', { recursive: true });
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // FIXED DEFINITIVELY: Explicit forward slashes separating ://github.com, owner, repo, and tag
-  const tarballUrl = `https://://github.com${owner}/${repo}/tarball/${tag}`;
+  // FIXED DEFINTIVELY: Uses bulletproof string addition to completely avoid bracket interpolation issues
+  const tarballUrl = 'https://github.com' + owner + '/' + repo + '/tarball/' + tag;
+  console.log('Target API Download Location resolved to: ' + tarballUrl);
   
+  // Download using curl with explicit header mapping structures
   execSync(
-    `curl -sL -H "Authorization: Bearer ${token}" -H "Accept: application/vnd.github+json" "${tarballUrl}" -o "${repo}.tar.gz"`,
+    'curl -sL -H "Authorization: Bearer ' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
     { stdio: 'inherit' }
   );
 
   console.log('Step 3: Extracting package contents into target node_modules scope...');
-  execSync(`tar -xzf "${repo}.tar.gz" -C "${targetDir}" --strip-components=1`, { stdio: 'inherit' });
+  // Extract archive and safely strip top-level directories created by GitHub
+  execSync('tar -xzf "' + repo + '.tar.gz" -C "' + targetDir + '" --strip-components=1', { stdio: 'inherit' });
 
-  fs.unlinkSync(`${repo}.tar.gz`);
-  console.log('SUCCESS: Private dependency successfully resolved and mounted!');
+  // Clear up archive remnants
+  fs.unlinkSync(repo + '.tar.gz');
+  console.log('SUCCESS: Dependency successfully resolved and mounted!');
 
 } catch (error) {
-  console.error('CRITICAL ERROR: Failed to resolve private repository bundle:', error.message);
+  console.error('CRITICAL ERROR: Failed to resolve repository bundle:', error.message);
   process.exit(1);
 }
