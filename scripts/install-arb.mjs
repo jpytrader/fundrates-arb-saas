@@ -29,11 +29,11 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // FIXED DEFINTIVELY: Uses bulletproof string addition to completely avoid bracket interpolation issues
-  const tarballUrl = 'https://github.com/' + owner + '/' + repo + '/tarball/' + tag;
+  // FIXED: Explicitly includes the required forward slash and repos directory segment
+  const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + tag;
   console.log('Target API Download Location resolved to: ' + tarballUrl);
   
-  // Download using curl with explicit header mapping structures
+  // Download using curl with explicit header mapping structures targeting the API
   execSync(
     'curl -sL -H "Authorization: Bearer ' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
     { stdio: 'inherit' }
