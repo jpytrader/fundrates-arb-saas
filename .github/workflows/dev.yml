@@ -39,7 +39,7 @@ jobs:
           ARB_BRANCH: dev
         run: node scripts/install-arb.mjs
 
-      - run: bun run lint --if-present
+      - run: bun run lint
       - run: bun run test --if-present
       - run: bun run build
 
