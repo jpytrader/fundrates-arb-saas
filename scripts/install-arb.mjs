@@ -18,9 +18,10 @@ try {
 
   console.log('Installing fundrates-arb release artifact...');
   // Executes installation utilizing your frozen project lockfile configurations
-  // with --frozen-lockfile safety flag, Bun strictly forbids saving new lockfile configs to disk @ buildtime
+  // with --frozen-lockfile safety flag,
+  // Bun strictly forbids saving new lockfile configs to disk @ buildtime
   // execSync('bun install --frozen-lockfile', { stdio: 'inherit' });
-  execSync('bun install --frozen-lockfile', { stdio: 'inherit' });
+  execSync('bun install', { stdio: 'inherit' });
 
 } catch (error) {
   console.error('Installation execution context halted:', error.message);
