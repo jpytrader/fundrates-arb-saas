@@ -34,21 +34,13 @@ jobs:
         with:
           bun-version: latest
 
-      # STEP 1: Fix lockfiles FIRST before running any locked or specialized scripts
       - name: Automate out-of-sync lockfile update
         run: |
           set -euo pipefail
-          
-          # Force clean old compilation lock caches
           rm -f bun.lock bun.lockb
-          
-          # Run install to generate a fresh lockfile using your native environmental token variable mapping
           bun install
           
-          # Stage the newly generated lockfile
           git add bun.lock bun.lockb package.json 2>/dev/null || true
-          
-          # Check if there is anything staged for a commit
           if ! git diff --cached --quiet; then
             echo "Lockfile discrepancy detected. Committing fresh Bun lock matrix..."
             git config user.email "ci-bot@users.noreply.github.com"
@@ -56,9 +48,10 @@ jobs:
             git commit -m "chore: automated bun lockfile synchronization [skip ci]"
             git push origin dev
           else
-            echo "Lockfile is verified in sync with package dependencies."
+            echo "Lockfile is verified clean."
           fi
 
+      # Triggers public installation AND securely downloads your private component
       - name: Resolve and install fundrates-arb
         run: node scripts/install-arb.mjs
       
