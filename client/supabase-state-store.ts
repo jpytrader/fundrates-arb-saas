@@ -3,8 +3,8 @@ import type {
   StateStore,
   PersistedState,
   PnlSnapshot,
-} from '@vireson/funding-rate-arb';
-import { PERSISTENCE_VERSION } from '@vireson/funding-rate-arb';
+} from '@jpytrader/fundrates-arb';
+import { PERSISTENCE_VERSION } from '@jpytrader/fundrates-arb';
 
 /**
  * SupabaseStateStore — external StateStore adapter for the funding-rate-arb component.

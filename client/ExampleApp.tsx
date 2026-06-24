@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { FundingRateArb } from '@vireson/funding-rate-arb';
+import { FundingRateArb } from '@jpytrader/fundrates-arb';
 import { useSupabaseFra } from './use-supabase-fra';
 import { SubscriptionGate } from './SubscriptionGate';
 
