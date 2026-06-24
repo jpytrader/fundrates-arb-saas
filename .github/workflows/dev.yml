@@ -38,15 +38,23 @@ jobs:
         run: |
           set -euo pipefail
           
-          # Run install without frozen flags to let Bun successfully build the lockfile
+          # Allow Git rewrite configuration locally so Bun can see the repo structure if needed
+          git config --global url."https://x-access-token:${GH_DEP_TOKEN}@://github.com".insteadOf "https://://github.com"
+          
+          # Run install to generate/migrate the lockfile safely
           bun install
           
-          # If Bun modified the lockfile structure, commit it right back to dev branch
-          if [ -n "$(git status --porcelain bun.lock bun.lockb package.json 2>/dev/null)" ]; then
+          # Clean up the temporary rewrite setting immediately
+          git config --global --unset-all url."https://x-access-token:${GH_DEP_TOKEN}@://github.com".insteadOf || true
+          
+          # FIXED: Stage potential new or modified lockfiles first so git status can see them
+          git add bun.lock bun.lockb package.json 2>/dev/null || true
+          
+          # Check if there is anything staged for a commit
+          if ! git diff --cached --quiet; then
             echo "Lockfile discrepancy detected. Committing fresh Bun lock matrix..."
-            git config user.email "ci-bot@users.noreply.github.com"
+            git config user.email "ci-bot@://github.com"
             git config user.name "ci-bot"
-            git add bun.lock bun.lockb package.json 2>/dev/null || true
             git commit -m "chore: automated bun lockfile synchronization [skip ci]"
             git push origin dev
           else
