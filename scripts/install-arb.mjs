@@ -28,8 +28,8 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // Constructed dynamically from pure environment primitives, leaving no room for tracking typos
-  const tarballUrl = `https://github.com{owner}/${repo}/tarball/${tag}`;
+  // FIXED: Explicit leading $ sign added right before {owner} on character 40
+  const tarballUrl = `https://github.com/${owner}/${repo}/tarball/${tag}`;
   
   execSync(
     `curl -sL -H "Authorization: Bearer ${token}" -H "Accept: application/vnd.github+json" "${tarballUrl}" -o "${repo}.tar.gz"`,
