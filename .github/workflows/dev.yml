@@ -51,14 +51,19 @@ jobs:
           set -euo pipefail
           SHA_SHORT=$(git rev-parse --short HEAD)
 
+          # Ensure stale worktree metadata is cleared out
           git worktree prune || true
-          WORK=$(mktemp -d)
+          
+          # FIXED: Create the temporary directory inside the current git workspace root
+          WORK="./.git_worktree_test"
+          rm -rf "$WORK"
+          
           git worktree add "$WORK" test
 
-          # Deep-clean the worktree to prevent raw development files from persisting
+          # Deep-clean the worktree target destination folder 
           find "$WORK" -maxdepth 1 ! -name '.' ! -name '.git' -exec rm -rf {} +
 
-          # Selectively copy only production artifacts and workflow automation layers
+          # Selectively copy only compiled production artifacts and workflow automation layers
           cp -r dist "$WORK/"
           cp -r .github "$WORK/"
           
@@ -66,13 +71,14 @@ jobs:
           cp package.json package-lock.json .npmrc "$WORK/" 2>/dev/null || true
           cp *.md "$WORK/" 2>/dev/null || true
 
+          # Move into the worktree directory safely
           cd "$WORK"
+          
           git add -A
           if git diff --cached --quiet; then
             echo "No compiled delivery changes detected. Skipping branch update."
           else
-            # FIXED: Corrected invalid email formatting token string block
-            git -c user.email="ci-bot@users.noreply.github.com" \
+            git -c user.email="ci-bot@://github.com" \
                 -c user.name="ci-bot" \
               commit -m "build: compile dev@${SHA_SHORT} (arb=v0.1.0)"
             git push origin test
