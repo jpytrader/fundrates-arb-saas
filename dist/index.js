@@ -20286,11 +20286,11 @@ var styles = {
   }
 };
 
-// client/ExampleApp.tsx
+// client/index.tsx
 var jsx_dev_runtime2 = __toESM(require_jsx_dev_runtime(), 1);
 var supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
 var PRICE_ID = import.meta.env.VITE_STRIPE_PRICE_ID;
-function ExampleApp() {
+function index() {
   const { store, userId, revision, subscription } = useSupabaseFra(supabase);
   return /* @__PURE__ */ jsx_dev_runtime2.jsxDEV(SubscriptionGate, {
     supabase,
@@ -20330,5 +20330,5 @@ function ExampleApp() {
   }, undefined, false, undefined, this);
 }
 export {
-  ExampleApp
+  index
 };

@@ -24,9 +24,9 @@ RUN set -eu; \
       supabase link --project-ref "$REF" --password "PlaceholderUnusedForApiDirectives"; \
       \
       echo "Executing Database Schema migrations..."; \
-      supabase db push --file migrations/0001_init.sql; \
+      npm run db:push -- --file migrations/0001_init.sql; \
       supabase secrets set FRA_CRON_SECRET="$FRA_CRON_SECRET"; \
-      supabase functions deploy fra-engine --no-verify-jwt; \
+      npm run deploy:functions -- --no-verify-jwt; \
       \
       echo "Wiring Billing schemas and Payment gateways..."; \
       supabase db push --file migrations/0002_subscriptions.sql; \
@@ -66,11 +66,15 @@ RUN set -eu; \
 # ==========================================
 # STAGE 2: High-Performance Production App
 # ==========================================
-FROM node:20-alpine
+# FROM node:20-alpine
+FROM oven/bun:alpine
 WORKDIR /app
 COPY package*.json .npmrc ./
-RUN npm install --omit=dev || npm install
+# RUN npm install --omit=dev || npm install
+RUN bun install --production
 COPY dist/ ./dist/
 COPY README.md IONIC_MOBILE_APP.md ./
 EXPOSE 3000
-CMD ["npm", "start"]
+# CMD ["npm", "start"]
+# Run the application utilizing bun execution parameters
+CMD ["bun", "run", "dist/index.js"] 
