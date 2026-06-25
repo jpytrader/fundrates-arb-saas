@@ -8,7 +8,7 @@
     "deploy:functions": "supabase functions deploy fra-engine",
     "db:push": "supabase db push",
     "lint": "oxlint",
-    "build": "bun build ./client/ExampleApp.tsx --outdir ./dist"
+    "build": "bun build ./client/index.tsx --outdir ./dist"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
