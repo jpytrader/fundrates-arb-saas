@@ -232,6 +232,5 @@ jobs:
               
               **Orchestration & Services Automation Added:**
               - Unified Multi-Stage \`Dockerfile\` added for complete schema/secret provisioning.
-              - Standardized `docker-compose.yml` and `railway.toml` parity active." \
-            || echo "A promotion PR already exists or was updated successfully."
+              - Standardized `docker-compose.yml` and `railway.toml` parity active." || echo "A promotion PR already exists or was updated successfully."
           fi
