@@ -57,7 +57,7 @@ jobs:
           cp package.json package-lock.json .npmrc "$WORK/" 2>/dev/null || true
           cp *.md "$WORK/" 2>/dev/null || true
 
-          # 🌟 DYNAMIC GENERATION OF ORCHESTRATION ASSETS INSIDE THE WORKSPACE
+          # DYNAMIC GENERATION OF ORCHESTRATION ASSETS INSIDE THE WORKSPACE
           echo "Generating Multi-Stage Production Dockerfile..."
           cat << 'EOF' > "$WORK/Dockerfile"
           # ==========================================
@@ -160,18 +160,21 @@ jobs:
               restart: on-failure
           EOF
 
+          # Hexadecimal injection to safely bypass the GitHub Actions Expression Engine
           echo "Generating railway.toml..."
-          cat << 'EOF' > "$WORK/railway.toml"
+          O_START=$(printf '\x24\x7b\x7b')
+          O_END=$(printf '\x7d\x7d')
+          cat << EOF > "$WORK/railway.toml"
           [build]
           builder = "DOCKER"
           dockerfilePath = "Dockerfile"
 
           [build.args]
-          SUPABASE_URL = "${{SUPABASE_URL}}"
-          SUPABASE_SERVICE_ROLE_KEY = "${{SUPABASE_SERVICE_ROLE_KEY}}"
-          FRA_CRON_SECRET = "${{FRA_CRON_SECRET}}"
-          STRIPE_SECRET_KEY = "${{STRIPE_SECRET_KEY}}"
-          STRIPE_WEBHOOK_SECRET = "${{STRIPE_WEBHOOK_SECRET}}"
+          SUPABASE_URL = "${O_START}SUPABASE_URL${O_END}"
+          SUPABASE_SERVICE_ROLE_KEY = "${O_START}SUPABASE_SERVICE_ROLE_KEY${O_END}"
+          FRA_CRON_SECRET = "${O_START}FRA_CRON_SECRET${O_END}"
+          STRIPE_SECRET_KEY = "${O_START}STRIPE_SECRET_KEY${O_END}"
+          STRIPE_WEBHOOK_SECRET = "${O_START}STRIPE_WEBHOOK_SECRET${O_END}"
 
           [deploy]
           startCommand = "npm start"
@@ -179,9 +182,9 @@ jobs:
           restartPolicyMaxRetries = 5
 
           [services.app-service.variables]
-          SUPABASE_URL = "${{SUPABASE_URL}}"
-          SUPABASE_ANON_KEY = "${{SUPABASE_ANON_KEY}}"
-          STRIPE_PRICE_ID = "${{STRIPE_PRICE_ID}}"
+          SUPABASE_URL = "${O_START}SUPABASE_URL${O_END}"
+          SUPABASE_ANON_KEY = "${O_START}SUPABASE_ANON_KEY${O_END}"
+          STRIPE_PRICE_ID = "${O_START}STRIPE_PRICE_ID${O_END}"
           EOF
 
           # Mount the main branch worktree to test modifications natively
@@ -205,32 +208,36 @@ jobs:
           cp $WORK/Dockerfile $WORK/docker-compose.yml $WORK/railway.toml "$WORK/git_mount/"
 
           cd "$WORK/git_mount"
-          git config user.email "ci-bot@users.noreply.github.com"
+          git config user.email "ci-bot@://github.com"
           git config user.name "ci-bot"
           git add -A
           
-          # FIXED: Gracefully check for modifications before forcing an empty commit error
+          # Gracefully check for modifications before forcing an empty commit error
           if git diff --cached --quiet; then
             echo "SUCCESS: Staging artifacts are perfectly identical to production. No new changes to promote."
           else
             echo "Production changes detected. Committing clean release payload..."
             git commit -m "release: clean production payload from test@${SHA_SHORT}"
             git push origin "$RELEASE_BRANCH" --force
+            
+            # Generate the Pull Request Markdown Description File cleanly without escaping leaks
+            echo "### Automated Production Promotion PR" > "$WORK/pr_description.md"
+            echo "Staging and E2E verifications have cleared successfully." >> "$WORK/pr_description.md"
+            echo "" >> "$WORK/pr_description.md"
+            echo "**Pristine Production Footprint Enforced:**" >> "$WORK/pr_description.md"
+            echo "- \`.github/\` workflows have been completely excluded from the bundle." >> "$WORK/pr_description.md"
+            echo "- \`scripts/\` directory has been stripped." >> "$WORK/pr_description.md"
+            echo "- Raw development source files are entirely absent." >> "$WORK/pr_description.md"
+            echo "" >> "$WORK/pr_description.md"
+            echo "**Orchestration & Services Automation Added:**" >> "$WORK/pr_description.md"
+            echo "- Unified Multi-Stage \`Dockerfile\` added for complete schema/secret provisioning." >> "$WORK/pr_description.md"
+            echo "- Standardized \`docker-compose.yml\` and \`railway.toml\` parity active." >> "$WORK/pr_description.md"
 
             echo "Generating automated production promotion Pull Request..."
             gh pr create \
               --base main \
               --head "$RELEASE_BRANCH" \
               --title "Release: promote test -> main (Bundle @ ${SHA_SHORT})" \
-              --body "### Automated Production Promotion PR
-              Staging and E2E verifications have cleared successfully.
-              
-              **Pristine Production Footprint Enforced:**
-              - \`.github/\` workflows have been completely excluded from the bundle.
-              - \`scripts/\` directory has been stripped.
-              - Raw development source files are entirely absent.
-              
-              **Orchestration & Services Automation Added:**
-              - Unified Multi-Stage \`Dockerfile\` added for complete schema/secret provisioning.
-              - Standardized `docker-compose.yml` and `railway.toml` parity active." || echo "A promotion PR already exists or was updated successfully."
+              --body-file "$WORK/pr_description.md" \
+              || echo "A promotion PR already exists or was updated successfully."
           fi
