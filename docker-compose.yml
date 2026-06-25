@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  app-service:
+    build:
+      context: .
+      args:
+        - SUPABASE_URL=${SUPABASE_URL}
+        - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+        - FRA_CRON_SECRET=${FRA_CRON_SECRET}
+        - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+        - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+    ports:
+      - "3000:3000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - STRIPE_PRICE_ID=${STRIPE_PRICE_ID}
+    restart: on-failure

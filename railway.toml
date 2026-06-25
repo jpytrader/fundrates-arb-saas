@@ -1,0 +1,20 @@
+[build]
+builder = "DOCKER"
+dockerfilePath = "Dockerfile"
+
+[build.args]
+SUPABASE_URL = "${{SUPABASE_URL}}"
+SUPABASE_SERVICE_ROLE_KEY = "${{SUPABASE_SERVICE_ROLE_KEY}}"
+FRA_CRON_SECRET = "${{FRA_CRON_SECRET}}"
+STRIPE_SECRET_KEY = "${{STRIPE_SECRET_KEY}}"
+STRIPE_WEBHOOK_SECRET = "${{STRIPE_WEBHOOK_SECRET}}"
+
+[deploy]
+startCommand = "npm start"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+[services.app-service.variables]
+SUPABASE_URL = "${{SUPABASE_URL}}"
+SUPABASE_ANON_KEY = "${{SUPABASE_ANON_KEY}}"
+STRIPE_PRICE_ID = "${{STRIPE_PRICE_ID}}"
