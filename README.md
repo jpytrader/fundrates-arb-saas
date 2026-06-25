@@ -42,7 +42,7 @@ supabase-saas/
 │   ├── use-supabase-fra.tsx           ← Hook: auth + realtime + mandatory sub gate
 │   ├── use-subscription.tsx           ← Hook: reads public.subscriptions + realtime
 │   ├── SubscriptionGate.tsx           ← Mandatory wrapper around <FundingRateArb />
-│   └── ExampleApp.tsx                 ← Drop-in client example
+│   └── index.tsx                 ← Drop-in client example
 ├── edge-functions/
 │   ├── fra-engine/
 │   │   └── index.ts                   ← Server-side engine tick (pg_cron driven)
@@ -71,7 +71,7 @@ supabase-saas/
 4. **Apply billing schema** — `supabase db push migrations/0002_subscriptions.sql` (after installing the Stripe Sync Engine — see [`docs/BILLING.md`](./docs/BILLING.md))
 5. **Deploy functions** — `supabase functions deploy fra-engine create-checkout create-portal-session`
 6. **Set secrets** — see [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) and [`docs/BILLING.md`](./docs/BILLING.md)
-7. **Drop the client component into your app** — see [`client/ExampleApp.tsx`](./client/ExampleApp.tsx)
+7. **Drop the client component into your app** — see [`client/index.tsx`](./client/index.tsx)
 
 ## Billing (Mandatory)
 
