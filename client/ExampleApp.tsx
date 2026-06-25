@@ -12,7 +12,7 @@ const supabase = createClient(
 const PRICE_ID = import.meta.env.VITE_STRIPE_PRICE_ID;
 
 /**
- * ExampleApp — drop-in usage of <FundingRateArb /> with Supabase persistence
+ * index — drop-in usage of <FundingRateArb /> with Supabase persistence
  * AND a mandatory Stripe subscription gate.
  *
  * Flow:
@@ -21,7 +21,7 @@ const PRICE_ID = import.meta.env.VITE_STRIPE_PRICE_ID;
  *   3. <FundingRateArb /> remounts via `key={revision}` whenever the
  *      server-side engine writes to the state row.
  */
-export function ExampleApp() {
+export function index() {
   const { store, userId, revision, subscription } = useSupabaseFra(supabase);
 
   return (

@@ -41,13 +41,13 @@ cascade.
 // supabase-saas/__tests__/gate.test.tsx
 it('does not mount FundingRateArb without active subscription', async () => {
   mockSubscription({ status: null });
-  const { queryByTestId } = render(<ExampleApp />);
+  const { queryByTestId } = render(<index />);
   expect(queryByTestId('fra-root')).toBeNull();
 });
 
 it('mounts FundingRateArb when subscription becomes active', async () => {
   const { sub } = mockSubscription({ status: 'trialing' });
-  const { findByTestId } = render(<ExampleApp />);
+  const { findByTestId } = render(<index />);
   await findByTestId('fra-root');
   sub.update({ status: 'canceled' });
   await waitFor(() => expect(screen.queryByTestId('fra-root')).toBeNull());
@@ -231,7 +231,7 @@ render cycle.
 ```ts
 it('unmounts engine within 2s of subscription cancel', async () => {
   const { sub } = mockSubscription({ status: 'active' });
-  const { findByTestId, queryByTestId } = render(<ExampleApp />);
+  const { findByTestId, queryByTestId } = render(<index />);
   await findByTestId('fra-root');
 
   sub.update({ status: 'canceled' });

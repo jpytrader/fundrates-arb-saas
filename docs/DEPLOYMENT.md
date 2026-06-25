@@ -103,7 +103,7 @@ In your Ionic / Vite / Next app:
 npm install @vireson/funding-rate-arb @supabase/supabase-js
 ```
 
-Then drop in `client/ExampleApp.tsx` and configure the env vars in
+Then drop in `client/index.tsx` and configure the env vars in
 `.env.example`.
 
 ## Verifying
