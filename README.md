@@ -42,7 +42,7 @@ supabase-saas/
 │   ├── use-supabase-fra.tsx           ← Hook: auth + realtime + mandatory sub gate
 │   ├── use-subscription.tsx           ← Hook: reads public.subscriptions + realtime
 │   ├── SubscriptionGate.tsx           ← Mandatory wrapper around <FundingRateArb />
-│   └── index.tsx                      ← Drop-in client example
+│   └── index.tsx                      ← Drop-in client example app
 ├── edge-functions/
 │   ├── fra-engine/
 │   │   └── index.ts                   ← Server-side engine tick (pg_cron driven)
