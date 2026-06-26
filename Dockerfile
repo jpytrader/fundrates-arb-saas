@@ -9,7 +9,6 @@ WORKDIR /provision
 # 🌟 Add these lines so Stage 1 can receive variables from railway.toml
 ARG SUPABASE_URL
 ARG SUPABASE_SERVICE_ROLE_KEY
-ARG SUPABASE_PASS
 ARG FRA_CRON_SECRET
 ARG STRIPE_SECRET_KEY
 ARG STRIPE_WEBHOOK_SECRET
@@ -17,7 +16,6 @@ ARG STRIPE_WEBHOOK_SECRET
 # 🌟 Freeze them as active environment variables for your application runtime
 ENV SUPABASE_URL=$SUPABASE_URL
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
-ENV SUPABASE_PASS=$SUPABASE_PASS
 ENV FRA_CRON_SECRET=$FRA_CRON_SECRET
 ENV STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY
 ENV STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
@@ -32,7 +30,7 @@ RUN set -eu; \
     else \
       REF=$(echo "$SUPABASE_URL" | sed -E 's|https://([^.]+).*|\1|'); \
       echo "Provisioning Supabase cluster ref: $REF"; \
-      supabase link --project-ref "$REF" --password "$SUPABASE_PASS"; \
+      supabase link --project-ref "$REF" --password "PlaceholderUnusedForApiDirectives"; \
       \
       echo "Executing Database Schema migrations..."; \
       npm run db:push -- --file migrations/0001_init.sql; \
