@@ -71,7 +71,7 @@ FROM oven/bun:alpine
 WORKDIR /app
 COPY package*.json .npmrc ./
 # RUN npm install --omit=dev || npm install
-RUN bun install --production
+RUN bun install --production --no-frozen-lockfile
 COPY dist/ ./dist/
 COPY README.md ./
 EXPOSE 3000
