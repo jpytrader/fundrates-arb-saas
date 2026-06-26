@@ -57,7 +57,7 @@ jobs:
           cp -r dist "$WORK/"
           [ -d "migrations" ] && cp -r migrations "$WORK/"
           [ -d "edge-functions" ] && cp -r edge-functions "$WORK/"
-          cp package.json package-lock.json bun.lock .npmrc "$WORK/" 2>/dev/null || true
+          cp package.json package-lock.json bun.lock* .npmrc "$WORK/" 2>/dev/null || true
           cp *.md "$WORK/" 2>/dev/null || true
 
           # DYNAMIC GENERATION OF ORCHESTRATION ASSETS INSIDE THE WORKSPACE
@@ -208,7 +208,7 @@ jobs:
           cp -r $WORK/dist "$WORK/git_mount/"
           [ -d "$WORK/migrations" ] && cp -r $WORK/migrations "$WORK/git_mount/"
           [ -d "$WORK/edge-functions" ] && cp -r $WORK/edge-functions "$WORK/git_mount/"
-          cp $WORK/package.json $WORK/package-lock.json $WORK/.npmrc "$WORK/git_mount/" 2>/dev/null || true
+          cp $WORK/package.json $WORK/package-lock.json bun.lock* $WORK/.npmrc "$WORK/git_mount/" 2>/dev/null || true
           cp $WORK/*.md "$WORK/git_mount/" 2>/dev/null || true
           
           # Inject the new orchestration files directly into the git mount
