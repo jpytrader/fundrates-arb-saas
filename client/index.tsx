@@ -3,13 +3,13 @@ import { FundingRateArb } from '@jpytrader/fundrates-arb';
 import { useSupabaseFra } from './use-supabase-fra';
 import { SubscriptionGate } from './SubscriptionGate';
 
-// Replace with your project credentials (anon key only — never service role)
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY,
-);
+// Replace with your project credentials (anon key only — never service role)// Update your initialization file (e.g., supabaseClient.ts)
+const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
-const PRICE_ID = import.meta.env.VITE_STRIPE_PRICE_ID;
+const supabase = createClient(SUPABASE_URL,SUPABASE_ANON_KEY,);
+
+const PRICE_ID = import.meta.env?.VITE_STRIPE_PRICE_ID || process.env.STRIPE_PRICE_ID;
 
 /**
  * index — drop-in usage of <FundingRateArb /> with Supabase persistence
