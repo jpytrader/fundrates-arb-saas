@@ -21,7 +21,7 @@ adapter plus a server-side engine runner.
 │                          Supabase                                │
 │  ┌─────────────────────┐    ┌─────────────────────────────────┐  │
 │  │  Postgres + RLS     │    │  Edge Function: fra-engine      │  │
-│  │  • fra_state        │◀──▶│  Triggered by pg_cron           │  │
+│  │  • fra_state        │◀──▶│ Triggered by pg_cron           │  │
 │  │  • fra_positions    │    │  Loads state → runs scan tick → │  │
 │  │  • fra_pnl_history  │    │  saves state                    │  │
 │  │  • fra_events       │    │  Secrets in Supabase Vault      │  │
