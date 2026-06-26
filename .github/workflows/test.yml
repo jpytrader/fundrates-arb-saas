@@ -170,7 +170,7 @@ jobs:
           O_END=$(printf '\x7d\x7d')
           cat << EOF > "$WORK/railway.toml"
           [build]
-          builder = "DOCKER"
+          builder = "DOCKERFILE"
           dockerfilePath = "Dockerfile"
 
           [build.args]
