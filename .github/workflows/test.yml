@@ -184,7 +184,6 @@ jobs:
           STRIPE_WEBHOOK_SECRET = "${O_START}STRIPE_WEBHOOK_SECRET${O_END}"
 
           [deploy]
-          startCommand = "npm start"
           restartPolicyType = "ON_FAILURE"
           restartPolicyMaxRetries = 5
 
