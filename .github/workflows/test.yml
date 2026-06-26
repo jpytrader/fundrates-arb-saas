@@ -35,6 +35,9 @@ jobs:
           ARB_TAG: 'v0.1.0'
         run: node scripts/install-arb.mjs
 
+      - name: Generate native Bun lockfile for production parity
+        run: bun install --backend=hardlink --no-save || bun install --no-save
+
       # - run: bun run test:e2e --if-present
 
       - name: Format Clean Production Bundle and Open Pull Request
@@ -54,7 +57,7 @@ jobs:
           cp -r dist "$WORK/"
           [ -d "migrations" ] && cp -r migrations "$WORK/"
           [ -d "edge-functions" ] && cp -r edge-functions "$WORK/"
-          cp package.json package-lock.json .npmrc "$WORK/" 2>/dev/null || true
+          cp package.json package-lock.json bun.lock .npmrc "$WORK/" 2>/dev/null || true
           cp *.md "$WORK/" 2>/dev/null || true
 
           # DYNAMIC GENERATION OF ORCHESTRATION ASSETS INSIDE THE WORKSPACE
