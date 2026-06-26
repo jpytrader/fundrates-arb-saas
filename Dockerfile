@@ -4,16 +4,27 @@
 FROM supabase/cli:v1.192.1 AS provisioner
 WORKDIR /provision
 
-# Explicitly copy ONLY what the Supabase CLI needs to deploy schemas & functions
-COPY migrations/ ./migrations/
-COPY edge-functions/ ./edge-functions/
 
 # Declare variables required at build/init phase
+# 🌟 Add these lines so Stage 1 can receive variables from railway.toml
 ARG SUPABASE_URL
 ARG SUPABASE_SERVICE_ROLE_KEY
+ARG SUPABASE_PASS
 ARG FRA_CRON_SECRET
 ARG STRIPE_SECRET_KEY
 ARG STRIPE_WEBHOOK_SECRET
+
+# 🌟 Freeze them as active environment variables for your application runtime
+ENV SUPABASE_URL=$SUPABASE_URL
+ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+ENV SUPABASE_PASS=$SUPABASE_PASS
+ENV FRA_CRON_SECRET=$FRA_CRON_SECRET
+ENV STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY
+ENV STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
+
+# Explicitly copy ONLY what the Supabase CLI needs to deploy schemas & functions
+COPY migrations/ ./migrations/
+COPY edge-functions/ ./edge-functions/
 
 RUN set -eu; \
     if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then \
@@ -21,7 +32,7 @@ RUN set -eu; \
     else \
       REF=$(echo "$SUPABASE_URL" | sed -E 's|https://([^.]+).*|\1|'); \
       echo "Provisioning Supabase cluster ref: $REF"; \
-      supabase link --project-ref "$REF" --password "PlaceholderUnusedForApiDirectives"; \
+      supabase link --project-ref "$REF" --password "$SUPABASE_PASS"; \
       \
       echo "Executing Database Schema migrations..."; \
       npm run db:push -- --file migrations/0001_init.sql; \
@@ -69,6 +80,17 @@ RUN set -eu; \
 # FROM node:20-alpine
 FROM oven/bun:alpine
 WORKDIR /app
+
+# 🌟 Add these lines so Stage 2 can receive variables from railway.toml
+ARG SUPABASE_URL
+ARG SUPABASE_ANON_KEY
+ARG STRIPE_PRICE_ID
+
+# 🌟 Freeze them as active environment variables for your application runtime
+ENV SUPABASE_URL=$SUPABASE_URL
+ENV SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+ENV STRIPE_PRICE_ID=$STRIPE_PRICE_ID
+
 COPY package*.json bun.lock* .npmrc ./
 # RUN npm install --omit=dev || npm install
 RUN bun install --production --no-frozen-lockfile
