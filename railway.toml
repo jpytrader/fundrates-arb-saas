@@ -10,7 +10,6 @@ STRIPE_SECRET_KEY = "${{STRIPE_SECRET_KEY}}"
 STRIPE_WEBHOOK_SECRET = "${{STRIPE_WEBHOOK_SECRET}}"
 
 [deploy]
-startCommand = "npm start"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
 
