@@ -73,7 +73,7 @@ COPY package*.json .npmrc ./
 # RUN npm install --omit=dev || npm install
 RUN bun install --production
 COPY dist/ ./dist/
-COPY README.md IONIC_MOBILE_APP.md ./
+COPY README.md ./
 EXPOSE 3000
 # CMD ["npm", "start"]
 # Run the application utilizing bun execution parameters
