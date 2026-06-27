@@ -11,6 +11,7 @@ RUN apk add --no-cache git bash libc6-compat
 # Declare variables required at build/init phase
 # 🌟 Add these lines so Stage 1 can receive variables from railway.toml
 ARG SUPABASE_URL
+ARG SUPABASE_URL_PWD
 ARG SUPABASE_SERVICE_ROLE_KEY
 ARG SUPABASE_ACCESS_TOKEN
 ARG FRA_CRON_SECRET
@@ -20,6 +21,7 @@ ARG STRIPE_WEBHOOK_SECRET
 # 🌟 Freeze them as active environment variables for your application runtime
 ENV SUPABASE_URL=$SUPABASE_URL
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+ENV SUPABASE_URL_PWD=$SUPABASE_URL_PWD
 # Authorizes the CLI directly against your cloud project - generate in Supabase account
 ENV SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN
 ENV FRA_CRON_SECRET=$FRA_CRON_SECRET
@@ -44,7 +46,7 @@ RUN set -eu; \
       # 🌟 ADD THIS EXACT LINE BELOW: Automates creation of the missing config.toml file
       bunx supabase init; \
       \
-      bunx supabase link --project-ref "$REF" --password "PlaceholderUnusedForApiDirectives"; \
+      bunx supabase link --project-ref "$REF" --password "$SUPABASE_URL_PWD"; \
       \
       echo "Executing Database Schema migrations..."; \
       bun run db:push -- --file migrations/0001_init.sql; \
