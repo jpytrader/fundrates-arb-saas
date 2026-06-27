@@ -1,13 +1,12 @@
 import React, { useEffect, useState, type ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useSubscription } from './use-subscription';
+import { styles } from './SubscriptionGateStyles';
 
 interface SubscriptionGateProps {
   supabase: SupabaseClient;
   userId: string | null;
-  /** Stripe Price ID for the recurring plan (price_xxx). */
   priceId: string;
-  /** Auto-redirect to Stripe Checkout when no active subscription exists. */
   autoRedirect?: boolean;
   children: ReactNode;
 }
@@ -16,33 +15,26 @@ export function SubscriptionGate({
   supabase,
   userId,
   priceId,
-  autoRedirect = false, // Turned off by default so users can read your new marketing landing dashboard first
+  autoRedirect = false,
   children,
 }: SubscriptionGateProps) {
   const sub = useSubscription(supabase, userId);
   
-  // Modal visibility states
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   
-  // Form input parameters
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Auto-redirect handling for authenticated users lacking active billing tags
   useEffect(() => {
-    if (!autoRedirect) return;
-    if (!userId) return;
-    if (sub.loading) return;
-    if (sub.isActive) return;
+    if (!autoRedirect || !userId || sub.loading || sub.isActive) return;
     void sub.redirectToCheckout(priceId).catch((err) => {
       console.error('[SubscriptionGate] checkout redirect failed', err);
     });
   }, [autoRedirect, userId, sub.loading, sub.isActive, sub, priceId]);
 
-  // Handle Authentication Execution Loops Natively
   const handleAuthAction = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -54,11 +46,8 @@ export function SubscriptionGate({
         if (error) throw error;
         setIsAuthModalOpen(false);
       } else {
-        // Sign up routes directly to remote registration layouts
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        
-        // After account generation, instantly kick off the payment lifecycle
         void sub.redirectToCheckout(priceId);
       }
     } catch (err: any) {
@@ -76,13 +65,10 @@ export function SubscriptionGate({
     setIsAuthModalOpen(true);
   };
 
-  // ==========================================================
-  // VIEW 1: UNAUTHENTICATED LANDING DASHBOARD
-  // ==========================================================
+  // 1. UNAUTHENTICATED LANDING PRESENTATION
   if (!userId) {
     return (
       <div style={styles.landingContainer}>
-        {/* Navigation Bar */}
         <header style={styles.header}>
           <div style={styles.logo}>Fundrates Arb</div>
           <button type="button" style={styles.navLink} onClick={() => openModal('signin')}>
@@ -90,7 +76,6 @@ export function SubscriptionGate({
           </button>
         </header>
 
-        {/* Hero Copy Presentation */}
         <main style={styles.heroSection}>
           <h1 style={styles.title}>Automated Funding Rate Arbitrage</h1>
           <p style={styles.subtitle}>
@@ -106,9 +91,8 @@ export function SubscriptionGate({
               Access Workspace
             </button>
           </div>
-        </header>
+        </main>
 
-        {/* Feature Grid Summary */}
         <section style={styles.featureSection}>
           <div style={styles.featureCard}>
             <h3 style={styles.cardTitle}>Delta-Neutral Execution</h3>
@@ -124,7 +108,6 @@ export function SubscriptionGate({
           </div>
         </section>
 
-        {/* AUTHENTICATION MODAL OVERLAY */}
         {isAuthModalOpen && (
           <div style={styles.modalOverlay} onClick={() => setIsAuthModalOpen(false)}>
             <div style={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
@@ -143,7 +126,7 @@ export function SubscriptionGate({
                   placeholder="Email address"
                   required
                   value={email}
-                  onChange={(e) => setEmail(value => e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   style={styles.input}
                 />
                 <input
@@ -151,7 +134,7 @@ export function SubscriptionGate({
                   placeholder="Password"
                   required
                   value={password}
-                  onChange={(e) => setPassword(value => e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   style={styles.input}
                 />
                 
@@ -176,9 +159,7 @@ export function SubscriptionGate({
     );
   }
 
-  // ==========================================================
-  // VIEW 2: AUTHENTICATED BUT MISSING BILLING TAGS
-  // ==========================================================
+  // 2. AUTHENTICATED BUT MISSING ACTIVE SUBSCRIPTION
   if (sub.loading) {
     return (
       <div style={styles.center}>
@@ -206,15 +187,10 @@ export function SubscriptionGate({
     );
   }
 
-  // ==========================================================
-  // VIEW 3: ACCESS GRANTED (Renders <FundingRateArb />)
-  // ==========================================================
+  // 3. ACCESS GRANTED
   return <>{children}</>;
 }
 
-// ==========================================================
-// PRISTINE DARK MODE LANDING STYLES
-// ==========================================================
 const styles: Record<string, React.CSSProperties> = {
   landingContainer: {
     backgroundColor: '#0f172a',
@@ -279,7 +255,8 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     background: '#3b82f6',
     color: 'white',
-    fontWeight: 600,cursor: 'pointer',
+    fontWeight: 600,
+    cursor: 'pointer',
     fontSize: 15,
   },
   secondaryBtn: {
