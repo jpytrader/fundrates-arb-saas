@@ -97,10 +97,7 @@ jobs:
           COPY package.json ./
 
           # 🌟 Install the exact stable Supabase CLI binary package natively via Bun
-          RUN bun install -g supabase@1.192.0
-
-          # 🌟 Bun uses its own binaries dir, so bake the binary via syymlink to core system bin path
-          RUN ln -s /root/.bun/bin/supabase /usr/local/bin/supabase
+          RUN bun add supabase@1.192.0
 
           RUN set -eu; \
               if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then \
