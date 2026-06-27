@@ -189,7 +189,7 @@ jobs:
 
           # Hexadecimal injection to safely bypass the GitHub Actions Expression Engine
           echo "Generating railway.toml..."
-          cat << EOF > "$WORK/railway.toml"
+          cat << 'EOF' > "$WORK/railway.toml"
           [build]
           builder = "DOCKERFILE"
           dockerfilePath = "Dockerfile"
