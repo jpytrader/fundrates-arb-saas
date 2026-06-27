@@ -42,16 +42,12 @@ RUN set -eu; \
       supabase secrets set STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY"; \
       supabase functions deploy create-checkout --no-verify-jwt; \
       supabase functions deploy create-portal-session --no-verify-jwt; \
-      \
+      \      
       echo "Scheduling persistent database background CRON automation..."; \
-      \
-      CRON_1_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-engine-tick');" | grep -t "true" || echo "false") \
-      \
-      echo "Checking and scheduling persistent database background CRON automation..." \
-      \
-      # 🌟 FIX: Query the cron.job table first to see if 'fra-engine-tick' is already scheduled \
+      CRON_1_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-engine-tick');" | grep -q "true" && echo "true" || echo "false"); \
+      echo "Checking and scheduling persistent database background CRON automation..."; \
       if [ "$CRON_1_EXISTS" = "false" ]; then \
-        echo "Scheduling fra-engine-tick..." \
+        echo "Scheduling fra-engine-tick..."; \
         supabase db execute --string " \
           SELECT cron.schedule('fra-engine-tick', '* * * * *', \$\$\$ \
             SELECT net.http_post( \
@@ -62,14 +58,11 @@ RUN set -eu; \
           \$\$\$); \
         "; \
       else \
-        echo "CRON 'fra-engine-tick' already exists. Skipping scheduling." \
-      fi
-      \
-      # 🌟 FIX: Query the cron.job table for 'fra-reconcile-subscriptions' existence \
-      \
-      CRON_2_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-reconcile-subscriptions');" | grep -t "true" || echo "false") \
+        echo "CRON 'fra-engine-tick' already exists. Skipping scheduling."; \
+      fi; \
+      CRON_2_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-reconcile-subscriptions');" | grep -q "true" && echo "true" || echo "false"); \
       if [ "$CRON_2_EXISTS" = "false" ]; then \
-        echo "Scheduling fra-reconcile-subscriptions..." \
+        echo "Scheduling fra-reconcile-subscriptions..."; \
         supabase db execute --string " \
           SELECT cron.schedule('fra-reconcile-subscriptions', '0 * * * *', \$\$ \
             SELECT net.http_post( \
@@ -78,9 +71,9 @@ RUN set -eu; \
             ); \
           \$\$); \
         "; \
-      else
-        echo "CRON 'fra-reconcile-subscriptions' already exists. Skipping scheduling."
-      fi
+      else \
+        echo "CRON 'fra-reconcile-subscriptions' already exists. Skipping scheduling."; \
+      fi; \
       \
       echo "Deploying operational engine components, tags, and webhooks..."; \
       supabase db push --file migrations/0004_billing_resilience.sql; \
