@@ -107,9 +107,9 @@ jobs:
                 echo "Provisioning Supabase cluster ref: $REF"; \
                 \
                 # 🌟 ADD THIS EXACT LINE BELOW: Automates creation of the missing config.toml file
-                supabase init; \
+                bunx supabase init; \
                 \
-                supabase link --project-ref "$REF" --password "PlaceholderUnusedForApiDirectives"; \
+                bunx supabase link --project-ref "$REF" --password "PlaceholderUnusedForApiDirectives"; \
                 \
                 echo "Executing Database Schema migrations..."; \
                 bun run db:push -- --file migrations/0001_init.sql; \
