@@ -29,6 +29,8 @@ ENV STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
 # Explicitly copy ONLY what the Supabase CLI needs to deploy schemas & functions
 COPY migrations/ ./migrations/
 COPY edge-functions/ ./edge-functions/
+# Make package.json available to bun at build time - to access scripts block
+COPY package.json ./
 
 # 🌟 Install the exact stable Supabase CLI binary package natively via Bun
 RUN bun install -g supabase@1.192.0
