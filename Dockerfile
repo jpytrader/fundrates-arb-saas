@@ -1,12 +1,12 @@
 # ==========================================
 # STAGE 1: Automated Production Provisioner
 # ==========================================
-# 🌟 Using a universal, lightweight public base image that never drops/blocks permissions
-FROM alpine:3.20 AS provisioner
+# 🌟 Use the official Bun Alpine image which is public and downloads instantly everywhere
+FROM oven/bun:1.1-alpine AS provisioner
 WORKDIR /provision
 
-# 🌟 Install Bun, Git, and Bash natively to satisfy the Supabase deployment matrix
-RUN apk add --no-cache bun git bash
+# 🌟 Install Git, Bash, and the missing system library compatibility wrappers needed by Supabase
+RUN apk add --no-cache git bash libc6-compat
 
 # Declare variables required at build/init phase
 # 🌟 Add these lines so Stage 1 can receive variables from railway.toml
