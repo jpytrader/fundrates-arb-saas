@@ -103,7 +103,7 @@ jobs:
             echo "Provisioning Supabase cluster ref: $REF"
             
             # 🌟 Automate creation of the missing config.toml file
-            bunx supabase init
+            bunx supabase init --force
             bunx supabase link --project-ref "$REF"
             
             echo "Executing Database Schema migrations..."
@@ -199,7 +199,7 @@ jobs:
 
           [services.app-service.variables]
           EOF
-          
+
           printf 'SUPABASE_URL = "%sSUPABASE_URL%s"\n' "$(printf '\x24\x7b\x7b')" "$(printf '\x7d\x7d')" >> "$WORK/railway.toml"
           printf 'SUPABASE_ANON_KEY = "%sSUPABASE_ANON_KEY%s"\n' "$(printf '\x24\x7b\x7b')" "$(printf '\x7d\x7d')" >> "$WORK/railway.toml"
           printf 'STRIPE_PRICE_ID = "%sSTRIPE_PRICE_ID%s"\n' "$(printf '\x24\x7b\x7b')" "$(printf '\x7d\x7d')" >> "$WORK/railway.toml"
