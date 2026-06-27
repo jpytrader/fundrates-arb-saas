@@ -40,7 +40,11 @@ RUN set -eu; \
     else \
       REF=$(echo "$SUPABASE_URL" | sed -E 's|https://([^.]+).*|\1|'); \
       echo "Provisioning Supabase cluster ref: $REF"; \
-      bunx supabase link --project-ref "$REF" --password "PlaceholderUnusedForApiDirectives"; \
+      \
+      # 🌟 ADD THIS EXACT LINE BELOW: Automates creation of the missing config.toml file
+      supabase init; \
+      \
+      supabase link --project-ref "$REF" --password "PlaceholderUnusedForApiDirectives"; \
       \
       echo "Executing Database Schema migrations..."; \
       bun run db:push -- --file migrations/0001_init.sql; \
