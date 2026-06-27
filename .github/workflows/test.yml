@@ -101,25 +101,25 @@ jobs:
               else \
                 REF=$(echo "$SUPABASE_URL" | sed -E 's|https://([^.]+).*|\1|'); \
                 echo "Provisioning Supabase cluster ref: $REF"; \
-                supabase link --project-ref "$REF" --password "PlaceholderUnusedForApiDirectives"; \
+                bunx supabase link --project-ref "$REF" --password "PlaceholderUnusedForApiDirectives"; \
                 \
                 echo "Executing Database Schema migrations..."; \
                 npm run db:push -- --file migrations/0001_init.sql; \
-                supabase secrets set FRA_CRON_SECRET="$FRA_CRON_SECRET"; \
+                bunx supabase secrets set FRA_CRON_SECRET="$FRA_CRON_SECRET"; \
                 npm run deploy:functions -- --no-verify-jwt; \
                 \
                 echo "Wiring Billing schemas and Payment gateways..."; \
-                supabase db push --file migrations/0002_subscriptions.sql; \
-                supabase secrets set STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY"; \
-                supabase functions deploy create-checkout --no-verify-jwt; \
-                supabase functions deploy create-portal-session --no-verify-jwt; \
+                bunx supabase db push --file migrations/0002_subscriptions.sql; \
+                bunx supabase secrets set STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY"; \
+                bunx supabase functions deploy create-checkout --no-verify-jwt; \
+                bunx supabase functions deploy create-portal-session --no-verify-jwt; \
                 \      
                 echo "Scheduling persistent database background CRON automation..."; \
                 CRON_1_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-engine-tick');" | grep -q "true" && echo "true" || echo "false"); \
                 echo "Checking and scheduling persistent database background CRON automation..."; \
                 if [ "$CRON_1_EXISTS" = "false" ]; then \
                   echo "Scheduling fra-engine-tick..."; \
-                  supabase db execute --string " \
+                  bunx supabase db execute --string " \
                     SELECT cron.schedule('fra-engine-tick', '* * * * *', \$\$\$ \
                       SELECT net.http_post( \
                         url := '$SUPABASE_URL/functions/v1/fra-engine', \
@@ -134,7 +134,7 @@ jobs:
                 CRON_2_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-reconcile-subscriptions');" | grep -q "true" && echo "true" || echo "false"); \
                 if [ "$CRON_2_EXISTS" = "false" ]; then \
                   echo "Scheduling fra-reconcile-subscriptions..."; \
-                  supabase db execute --string " \
+                  bunx supabase db execute --string " \
                     SELECT cron.schedule('fra-reconcile-subscriptions', '0 * * * *', \$\$ \
                       SELECT net.http_post( \
                         url := 'https://' || '$REF' || '.functions.supabase.co/reconcile-subscriptions', \
@@ -147,12 +147,12 @@ jobs:
                 fi; \
                 \
                 echo "Deploying operational engine components, tags, and webhooks..."; \
-                supabase db push --file migrations/0004_billing_resilience.sql; \
-                supabase secrets set STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET"; \
-                supabase functions deploy stripe-webhook-fra; \
-                supabase functions deploy reconcile-subscriptions; \
-                supabase functions deploy revoke-exchange-key; \
-                supabase functions deploy rotate-exchange-key; \
+                bunx supabase db push --file migrations/0004_billing_resilience.sql; \
+                bunx supabase secrets set STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET"; \
+                bunx supabase functions deploy stripe-webhook-fra; \
+                bunx supabase functions deploy reconcile-subscriptions; \
+                bunx supabase functions deploy revoke-exchange-key; \
+                bunx supabase functions deploy rotate-exchange-key; \
                 # 🌟 Generates the tracking token upon successful completion
                 touch /provision/provision_receipt.txt \
                 echo "Database provisioning matrix established."; \
