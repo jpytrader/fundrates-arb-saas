@@ -8,7 +8,7 @@ else
   echo "Provisioning Supabase cluster ref: $REF"
   
   # 🌟 Automate creation of the missing config.toml file
-  bunx supabase init
+  bunx supabase init --force
   bunx supabase link --project-ref "$REF"
   
   echo "Executing Database Schema migrations..."
