@@ -161,7 +161,7 @@ jobs:
             bunx supabase functions deploy rotate-exchange-key
             echo "Database provisioning matrix established."
           fi
-          # Hand over execution natively to the standard container CMD ("bun run dist/index.js")
+          # Hand over execution natively to the standard container CMD
           exec "$@"
           EOF
 
