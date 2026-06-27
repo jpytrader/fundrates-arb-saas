@@ -65,7 +65,8 @@ RUN set -eu; \
         echo "CRON 'fra-engine-tick' already exists. Skipping scheduling." \
       fi
       \
-      # 🌟 FIX: Query the cron.job table for 'fra-reconcile-subscriptions' \
+      # 🌟 FIX: Query the cron.job table for 'fra-reconcile-subscriptions' existence \
+      \
       CRON_2_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-reconcile-subscriptions');" | grep -t "true" || echo "false") \
       if [ "$CRON_2_EXISTS" = "false" ]; then \
         echo "Scheduling fra-reconcile-subscriptions..." \
