@@ -91,7 +91,7 @@ jobs:
           CMD ["bun", "run", "dist/index.js"] 
           EOF
 
-          echo "Generating production entrypoint (script) layer..."
+          echo "Generating production entrypoint script layer..."
           cat << 'EOF' > "$WORK/docker-entrypoint.sh"
           #!/bin/bash
 
