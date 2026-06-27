@@ -8,7 +8,7 @@
     "deploy:functions": "supabase functions deploy fra-engine",
     "db:push": "supabase db push",
     "lint": "oxlint",
-    "build": "bun build ./client/index.tsx --outdir ./dist --minify --define import.meta.env.VITE_SUPABASE_URL=\"'\"$SUPABASE_URL\"'\" --define import.meta.env.VITE_SUPABASE_ANON_KEY=\"'\"$SUPABASE_ANON_KEY\"'\""
+    "build": "bun build ./index.ts ./index.cli.tsx --outdir=./dist --naming=[name].js --minify"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
