@@ -1,7 +1,7 @@
 # ==========================================
 # STAGE 1: Automated Production Provisioner
 # ==========================================
-FROM ghcr.io/supabase/cli:v1.192.1 AS provisioner
+FROM ghcr.io/supabase/cli:1.192.0 AS provisioner
 WORKDIR /provision
 
 
