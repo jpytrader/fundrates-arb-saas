@@ -84,6 +84,7 @@ jobs:
           # 🌟 Freeze them as active environment variables for your application runtime
           ENV SUPABASE_URL=$SUPABASE_URL
           ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+          ENV SUPABASE_ACCESS_TOKEN=$SUPABASE_SERVICE_ROLE_KEY # Authorize CLI directly against supabase cloud project
           ENV FRA_CRON_SECRET=$FRA_CRON_SECRET
           ENV STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY
           ENV STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
