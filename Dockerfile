@@ -46,7 +46,7 @@ RUN set -eu; \
       # 🌟 ADD THIS EXACT LINE BELOW: Automates creation of the missing config.toml file
       bunx supabase init; \
       \
-      bunx supabase link --project-ref "$REF" --password "$SUPABASE_URL_PWD"; \
+      echo "$SUPABASE_URL_PWD" | bunx supabase link --project-ref "$REF"; \
       \
       echo "Executing Database Schema migrations..."; \
       bun run db:push -- --file migrations/0001_init.sql; \
