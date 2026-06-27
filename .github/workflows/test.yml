@@ -199,9 +199,9 @@ jobs:
           restartPolicyMaxRetries = 5
 
           [services.app-service.variables]
-          SUPABASE_URL = "${{SUPABASE_URL$}}"
-          SUPABASE_ANON_KEY = "${{SUPABASE_ANON_KEY$}}"
-          STRIPE_PRICE_ID = "${{STRIPE_PRICE_ID$}}"
+          SUPABASE_URL = "${{SUPABASE_URL}}"
+          SUPABASE_ANON_KEY = "${{SUPABASE_ANON_KEY}}"
+          STRIPE_PRICE_ID = "${{STRIPE_PRICE_ID}}"
           EOF
 
           # Mount the main branch worktree to test modifications natively
