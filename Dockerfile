@@ -12,6 +12,7 @@ RUN apk add --no-cache git bash libc6-compat
 # 🌟 Add these lines so Stage 1 can receive variables from railway.toml
 ARG SUPABASE_URL
 ARG SUPABASE_SERVICE_ROLE_KEY
+ARG SUPABASE_ACCESS_TOKEN
 ARG FRA_CRON_SECRET
 ARG STRIPE_SECRET_KEY
 ARG STRIPE_WEBHOOK_SECRET
@@ -19,8 +20,8 @@ ARG STRIPE_WEBHOOK_SECRET
 # 🌟 Freeze them as active environment variables for your application runtime
 ENV SUPABASE_URL=$SUPABASE_URL
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
-# Authorizes the CLI directly against your cloud project
-ENV SUPABASE_ACCESS_TOKEN=$SUPABASE_SERVICE_ROLE_KEY
+# Authorizes the CLI directly against your cloud project - generate in Supabase account
+ENV SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN
 ENV FRA_CRON_SECRET=$FRA_CRON_SECRET
 ENV STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY
 ENV STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
