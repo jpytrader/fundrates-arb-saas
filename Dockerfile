@@ -25,11 +25,12 @@ ENV SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN
 ENV FRA_CRON_SECRET=$FRA_CRON_SECRET
 ENV STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY
 ENV STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
+# 🌟 Force container to recognize Bun's global binaries
+ENV PATH="/root/.bun/bin:${PATH}"
 
 # Explicitly copy ONLY what the Supabase CLI needs to deploy schemas & functions
 COPY migrations/ ./migrations/
 COPY edge-functions/ ./edge-functions/
-# Make package.json available to bun at build time - to access scripts block
 COPY package.json ./
 
 # 🌟 Install the exact stable Supabase CLI binary package natively via Bun
