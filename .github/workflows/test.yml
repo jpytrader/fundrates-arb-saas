@@ -66,9 +66,8 @@ jobs:
           # ==========================================
           # STAGE 1: Automated Production Provisioner
           # ==========================================
-          FROM ghcr.io/supabase/cli:1.192.0 AS provisioner
+          FROM supabase/cli:v1.192.0 AS provisioner
           WORKDIR /provision
-          
           
           # Declare variables required at build/init phase
           # 🌟 Add these lines so Stage 1 can receive variables from railway.toml
