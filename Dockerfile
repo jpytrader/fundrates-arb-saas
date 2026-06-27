@@ -1,8 +1,12 @@
 # ==========================================
 # STAGE 1: Automated Production Provisioner
 # ==========================================
-FROM supabase/supabase-cli:1.192.0 AS provisioner
+# 🌟 Using a universal, lightweight public base image that never drops/blocks permissions
+FROM alpine:3.18 AS provisioner
 WORKDIR /provision
+
+# 🌟 Install basic native networking utilities required to download the CLI binary
+RUN apk add --no-cache curl tar bash git npm
 
 # Declare variables required at build/init phase
 # 🌟 Add these lines so Stage 1 can receive variables from railway.toml
@@ -22,6 +26,11 @@ ENV STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
 # Explicitly copy ONLY what the Supabase CLI needs to deploy schemas & functions
 COPY migrations/ ./migrations/
 COPY edge-functions/ ./edge-functions/
+
+# 🌟 Download and install the specific standalone Supabase CLI binary directly into the image path
+RUN curl -sSLo supabase.tar.gz "https://github.com" && \
+    tar -xzf supabase.tar.gz -C /usr/local/bin/ && \
+    rm supabase.tar.gz
 
 RUN set -eu; \
     if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then \
