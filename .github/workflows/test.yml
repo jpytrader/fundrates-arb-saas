@@ -102,7 +102,7 @@ jobs:
             REF=$(echo "$SUPABASE_URL" | sed -E 's|https://([^.]+).*|\1|')
             echo "Provisioning Supabase cluster ref: $REF"
             
-            # 🌟 ADD THIS EXACT LINE BELOW: Automates creation of the missing config.toml file
+            # 🌟 Automate creation of the missing config.toml file
             bunx supabase init
             bunx supabase link --project-ref "$REF"
             
@@ -188,9 +188,7 @@ jobs:
 
           # Hexadecimal injection to safely bypass the GitHub Actions Expression Engine
           echo "Generating railway.toml..."
-          O_START=\$(printf '\x24\x7b\x7b')
-          O_END=\$(printf '\x7d\x7d')
-          cat << EOF > "$WORK/railway.toml"
+          cat << 'EOF' > "$WORK/railway.toml"
           [build]
           builder = "DOCKERFILE"
           dockerfilePath = "Dockerfile"
@@ -200,9 +198,9 @@ jobs:
           restartPolicyMaxRetries = 5
 
           [services.app-service.variables]
-          SUPABASE_URL = "\${O_START}SUPABASE_URL\${O_END}"
-          SUPABASE_ANON_KEY = "\${O_START}SUPABASE_ANON_KEY\${O_END}"
-          STRIPE_PRICE_ID = "\${O_START}STRIPE_PRICE_ID\${O_END}"
+          SUPABASE_URL = "${{SUPABASE_URL}}"
+          SUPABASE_ANON_KEY = "${{SUPABASE_ANON_KEY}}"
+          STRIPE_PRICE_ID = "${{STRIPE_PRICE_ID}}"
           EOF
 
           # Mount the main branch worktree to test modifications natively
