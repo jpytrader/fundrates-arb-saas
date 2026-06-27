@@ -1,7 +1,7 @@
 # ==========================================
 # STAGE 1: Automated Production Provisioner
 # ==========================================
-FROM supabase/cli:v1.192.0 AS provisioner
+FROM supabase/supabase-cli:v1.192.0 AS provisioner
 WORKDIR /provision
 
 # Declare variables required at build/init phase
