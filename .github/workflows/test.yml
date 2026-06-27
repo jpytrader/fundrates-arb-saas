@@ -109,23 +109,42 @@ jobs:
                 supabase functions deploy create-portal-session --no-verify-jwt; \
                 \
                 echo "Scheduling persistent database background CRON automation..."; \
-                supabase db execute --string " \
-                  SELECT cron.schedule('fra-engine-tick', '* * * * *', \$\$\$ \
-                    SELECT net.http_post( \
-                      url := '$SUPABASE_URL/functions/v1/fra-engine', \
-                      headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', '$FRA_CRON_SECRET'), \
-                      body := '{}'::jsonb \
-                    ); \
-                  \$\$\$); \
-                "; \
-                supabase db execute --string " \
-                  SELECT cron.schedule('fra-reconcile-subscriptions', '0 * * * *', \$\$ \
-                    SELECT net.http_post( \
-                      url := 'https://' || '$REF' || '.functions.supabase.co/reconcile-subscriptions', \
-                      headers := jsonb_build_object('x-cron-secret', current_setting('app.settings.fra_cron_secret', true)) \
-                    ); \
-                  \$\$); \
-                "; \
+                \
+                CRON_1_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-engine-tick');" | grep -t "true" || echo "false") \
+                \
+                echo "Checking and scheduling persistent database background CRON automation..." \
+                \
+                # 🌟 FIX: Query the cron.job table first to see if 'fra-engine-tick' is already scheduled \
+                if [ "$CRON_1_EXISTS" = "false" ]; then \
+                  echo "Scheduling fra-engine-tick..." \
+                  supabase db execute --string " \
+                    SELECT cron.schedule('fra-engine-tick', '* * * * *', \$\$\$ \
+                      SELECT net.http_post( \
+                        url := '$SUPABASE_URL/functions/v1/fra-engine', \
+                        headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', '$FRA_CRON_SECRET'), \
+                        body := '{}'::jsonb \
+                      ); \
+                    \$\$\$); \
+                  "; \
+                else \
+                  echo "CRON 'fra-engine-tick' already exists. Skipping scheduling." \
+                fi
+                \
+                # 🌟 FIX: Query the cron.job table for 'fra-reconcile-subscriptions'
+                CRON_2_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-reconcile-subscriptions');" | grep -t "true" || echo "false") \
+                if [ "$CRON_2_EXISTS" = "false" ]; then \
+                  echo "Scheduling fra-reconcile-subscriptions..." \
+                  supabase db execute --string " \
+                    SELECT cron.schedule('fra-reconcile-subscriptions', '0 * * * *', \$\$ \
+                      SELECT net.http_post( \
+                        url := 'https://' || '$REF' || '.functions.supabase.co/reconcile-subscriptions', \
+                        headers := jsonb_build_object('x-cron-secret', current_setting('app.settings.fra_cron_secret', true)) \
+                      ); \
+                    \$\$); \
+                  "; \
+                else
+                  echo "CRON 'fra-reconcile-subscriptions' already exists. Skipping scheduling."
+                fi
                 \
                 echo "Deploying operational engine components, tags, and webhooks..."; \
                 supabase db push --file migrations/0004_billing_resilience.sql; \
@@ -134,6 +153,8 @@ jobs:
                 supabase functions deploy reconcile-subscriptions; \
                 supabase functions deploy revoke-exchange-key; \
                 supabase functions deploy rotate-exchange-key; \
+                # 🌟 Generates the tracking token upon successful completion
+                touch /provision/provision_receipt.txt \
                 echo "Database provisioning matrix established."; \
               fi
 
@@ -144,7 +165,10 @@ jobs:
           FROM oven/bun:alpine
           WORKDIR /app
           
-          # 🌟 Add these lines so Stage 2 can receive variables from railway.toml
+          # 🌟 Force Docker to fully run Stage 1 to fetch this file!
+          COPY --from=provisioner /provision/provision_receipt.txt ./
+          
+          # 🌟 There lines let Stage 2 receive variables from railway.toml
           ARG SUPABASE_URL
           ARG SUPABASE_ANON_KEY
           ARG STRIPE_PRICE_ID

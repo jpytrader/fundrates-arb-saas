@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import React, { useEffect, useState, type ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useSubscription } from './use-subscription';
 
@@ -12,23 +12,26 @@ interface SubscriptionGateProps {
   children: ReactNode;
 }
 
-/**
- * SubscriptionGate — MANDATORY wrapper for the SaaS deployment.
- *
- * Renders children only when the signed-in user has an active or trialing
- * subscription. Otherwise shows a CTA (and optionally auto-redirects to
- * Stripe Checkout). Realtime keeps the gate in sync with Stripe Sync writes.
- */
 export function SubscriptionGate({
   supabase,
   userId,
   priceId,
-  autoRedirect = true,
+  autoRedirect = false, // Turned off by default so users can read your new marketing landing dashboard first
   children,
 }: SubscriptionGateProps) {
   const sub = useSubscription(supabase, userId);
+  
+  // Modal visibility states
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  
+  // Form input parameters
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
 
-  // Auto-redirect to Stripe once we know auth is present + sub is missing.
+  // Auto-redirect handling for authenticated users lacking active billing tags
   useEffect(() => {
     if (!autoRedirect) return;
     if (!userId) return;
@@ -39,18 +42,147 @@ export function SubscriptionGate({
     });
   }, [autoRedirect, userId, sub.loading, sub.isActive, sub, priceId]);
 
+  // Handle Authentication Execution Loops Natively
+  const handleAuthAction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthLoading(true);
+
+    try {
+      if (authMode === 'signin') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        setIsAuthModalOpen(false);
+      } else {
+        // Sign up routes directly to remote registration layouts
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        
+        // After account generation, instantly kick off the payment lifecycle
+        void sub.redirectToCheckout(priceId);
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'Authentication processing error.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const openModal = (mode: 'signin' | 'signup') => {
+    setAuthMode(mode);
+    setAuthError(null);
+    setEmail('');
+    setPassword('');
+    setIsAuthModalOpen(true);
+  };
+
+  // ==========================================================
+  // VIEW 1: UNAUTHENTICATED LANDING DASHBOARD
+  // ==========================================================
   if (!userId) {
     return (
-      <div style={styles.center}>
-        <p>Please sign in to access the arbitrage dashboard.</p>
+      <div style={styles.landingContainer}>
+        {/* Navigation Bar */}
+        <header style={styles.header}>
+          <div style={styles.logo}>Fundrates Arb</div>
+          <button type="button" style={styles.navLink} onClick={() => openModal('signin')}>
+            Sign In
+          </button>
+        </header>
+
+        {/* Hero Copy Presentation */}
+        <main style={styles.heroSection}>
+          <h1 style={styles.title}>Automated Funding Rate Arbitrage</h1>
+          <p style={styles.subtitle}>
+            Maximize yields by capturing market inefficiencies across centralized and decentralized perpetual exchanges. 
+            Our automated execution engine tracks, balances, and locks delta-neutral premiums 24/7 with zero manual overhead.
+          </p>
+          
+          <div style={styles.ctaGroup}>
+            <button type="button" style={styles.primaryBtn} onClick={() => openModal('signup')}>
+              Get Started (Subscribe)
+            </button>
+            <button type="button" style={styles.secondaryBtn} onClick={() => openModal('signin')}>
+              Access Workspace
+            </button>
+          </div>
+        </header>
+
+        {/* Feature Grid Summary */}
+        <section style={styles.featureSection}>
+          <div style={styles.featureCard}>
+            <h3 style={styles.cardTitle}>Delta-Neutral Execution</h3>
+            <p style={styles.cardBody}>Simultaneously balance spot and perpetual positions to extract funding payouts without exposing capital to asset price direction fluctuations.</p>
+          </div>
+          <div style={styles.featureCard}>
+            <h3 style={styles.cardTitle}>Realtime Persistence</h3>
+            <p style={styles.cardBody}>Connected directly to Supabase clusters for persistent multi-account state tracking, engine revision history logging, and live balance monitoring.</p>
+          </div>
+          <div style={styles.featureCard}>
+            <h3 style={styles.cardTitle}>Stripe Payment Resilience</h3>
+            <p style={styles.cardBody}>Secure usage gateways managed via automated webhooks, custom webhook verification routines, and seamless checkout portals.</p>
+          </div>
+        </section>
+
+        {/* AUTHENTICATION MODAL OVERLAY */}
+        {isAuthModalOpen && (
+          <div style={styles.modalOverlay} onClick={() => setIsAuthModalOpen(false)}>
+            <div style={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
+              <h2 style={styles.modalTitle}>
+                {authMode === 'signin' ? 'Welcome Back' : 'Create Your Account'}
+              </h2>
+              <p style={styles.modalSubtitle}>
+                {authMode === 'signin' 
+                  ? 'Enter your credentials to access the arbitrage dashboard.' 
+                  : 'Register now to proceed securely to Stripe subscription checkout.'}
+              </p>
+
+              <form onSubmit={handleAuthAction} style={styles.form}>
+                <input
+                  type="email"
+                  placeholder="Email address"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(value => e.target.value)}
+                  style={styles.input}
+                />
+                <input
+                  type="password"
+                  placeholder="Password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(value => e.target.value)}
+                  style={styles.input}
+                />
+                
+                {authError && <p style={styles.errorText}>{authError}</p>}
+
+                <button type="submit" disabled={authLoading} style={styles.submitBtn}>
+                  {authLoading ? 'Processing…' : authMode === 'signin' ? 'Sign In' : 'Sign Up & Subscribe'}
+                </button>
+              </form>
+
+              <div style={styles.toggleModeBlock}>
+                {authMode === 'signin' ? (
+                  <p>Don't have an account? <span style={styles.toggleLink} onClick={() => openModal('signup')}>Sign up here</span></p>
+                ) : (
+                  <p>Already have an account? <span style={styles.toggleLink} onClick={() => openModal('signin')}>Sign in here</span></p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
+  // ==========================================================
+  // VIEW 2: AUTHENTICATED BUT MISSING BILLING TAGS
+  // ==========================================================
   if (sub.loading) {
     return (
       <div style={styles.center}>
-        <p>Verifying subscription…</p>
+        <p style={{ color: '#94a3b8' }}>Verifying subscription lifecycle status…</p>
       </div>
     );
   }
@@ -58,30 +190,138 @@ export function SubscriptionGate({
   if (!sub.isActive) {
     return (
       <div style={styles.center}>
-        <h2 style={{ marginBottom: 8 }}>Subscription required</h2>
-        <p style={{ marginBottom: 16, opacity: 0.8 }}>
-          An active subscription is required to use the Funding Rate Arbitrage dashboard.
+        <h2 style={{ marginBottom: 8, color: '#f8fafc' }}>Subscription Required</h2>
+        <p style={{ marginBottom: 20, color: '#94a3b8', maxWidth: 420, lineHeight: 1.5 }}>
+          Your account is active, but you do not have an active Funding Rate Arbitrage subscription profile.
         </p>
         <button
           type="button"
-          style={styles.button}
+          style={styles.primaryBtn}
           onClick={() => void sub.redirectToCheckout(priceId)}
         >
-          Subscribe to continue
+          Subscribe to Continue
         </button>
-        {sub.error && (
-          <p style={{ marginTop: 12, color: '#ef4444', fontSize: 13 }}>{sub.error}</p>
-        )}
+        {sub.error && <p style={styles.errorText}>{sub.error}</p>}
       </div>
     );
   }
 
+  // ==========================================================
+  // VIEW 3: ACCESS GRANTED (Renders <FundingRateArb />)
+  // ==========================================================
   return <>{children}</>;
 }
 
+// ==========================================================
+// PRISTINE DARK MODE LANDING STYLES
+// ==========================================================
 const styles: Record<string, React.CSSProperties> = {
+  landingContainer: {
+    backgroundColor: '#0f172a',
+    color: '#f8fafc',
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    fontFamily: 'system-ui, sans-serif',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '20px 40px',
+    borderBottom: '1px solid #1e293b',
+  },
+  logo: {
+    fontSize: 20,
+    fontWeight: 700,
+    letterSpacing: '-0.05em',
+    color: '#3b82f6',
+  },
+  navLink: {
+    background: 'transparent',
+    border: '1px solid #334155',
+    color: '#94a3b8',
+    padding: '8px 16px',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontWeight: 500,
+  },
+  heroSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    padding: '80px 24px 40px 24px',
+    maxWidth: 800,
+    margin: '0 auto',
+  },
+  title: {
+    fontSize: '2.75rem',
+    fontWeight: 800,
+    letterSpacing: '-0.03em',
+    marginBottom: 20,
+    lineHeight: 1.2,
+  },
+  subtitle: {
+    fontSize: '1.15rem',
+    color: '#94a3b8',
+    lineHeight: 1.6,
+    marginBottom: 36,
+  },
+  ctaGroup: {
+    display: 'flex',
+    gap: 16,
+  },
+  primaryBtn: {
+    padding: '12px 24px',
+    borderRadius: 8,
+    border: 'none',
+    background: '#3b82f6',
+    color: 'white',
+    fontWeight: 600,cursor: 'pointer',
+    fontSize: 15,
+  },
+  secondaryBtn: {
+    padding: '12px 24px',
+    borderRadius: 8,
+    border: '1px solid #334155',
+    background: 'transparent',
+    color: '#f8fafc',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontSize: 15,
+  },
+  featureSection: {
+    display: 'flex',
+    gap: 24,
+    maxWidth: 1000,
+    margin: '40px auto',
+    padding: '0 24px',
+    justifyContent: 'space-between',
+  },
+  featureCard: {
+    flex: 1,
+    background: '#1e293b',
+    padding: 24,
+    borderRadius: 12,
+    border: '1px solid #334155',
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 600,
+    marginBottom: 10,
+    color: '#3b82f6',
+  },
+  cardBody: {
+    fontSize: 14,
+    color: '#94a3b8',
+    lineHeight: 1.5,
+    margin: 0,
+  },
   center: {
-    minHeight: 240,
+    minHeight: '100vh',
+    backgroundColor: '#0f172a',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -89,13 +329,81 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 24,
     textAlign: 'center',
   },
-  button: {
-    padding: '10px 18px',
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backdropFilter: 'blur(4px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  modalContainer: {
+    background: '#1e293b',
+    border: '1px solid #334155',
+    padding: 40,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 420,
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 700,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 1.4,
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+  },
+  input: {
+    padding: '12px 16px',
+    borderRadius: 8,
+    border: '1px solid #334155',
+    background: '#0f172a',
+    color: '#f8fafc',
+    fontSize: 15,
+    outline: 'none',
+  },
+  submitBtn: {
+    padding: '12px',
     borderRadius: 8,
     border: 'none',
     background: '#3b82f6',
     color: 'white',
     fontWeight: 600,
     cursor: 'pointer',
+    fontSize: 15,
+    marginTop: 8,
+  },
+  toggleModeBlock: {
+    marginTop: 20,
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#94a3b8',
+  },
+  toggleLink: {
+    color: '#3b82f6',
+    cursor: 'pointer',
+    fontWeight: 500,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 13,
+    margin: '4px 0 0 0',
+    textAlign: 'center',
   },
 };
