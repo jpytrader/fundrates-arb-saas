@@ -25,8 +25,6 @@ ENV SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN
 ENV FRA_CRON_SECRET=$FRA_CRON_SECRET
 ENV STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY
 ENV STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
-# 🌟 Force container to recognize Bun's global binaries
-ENV PATH="/root/.bun/bin:${PATH}"
 
 # Explicitly copy ONLY what the Supabase CLI needs to deploy schemas & functions
 COPY migrations/ ./migrations/
@@ -35,6 +33,9 @@ COPY package.json ./
 
 # 🌟 Install the exact stable Supabase CLI binary package natively via Bun
 RUN bun install -g supabase@1.192.0
+
+# 🌟 Bun uses its own binaries dir, so bake the binary via syymlink to core system bin path
+RUN ln -s /root/.bun/bin/supabase /usr/local/bin/supabase
 
 RUN set -eu; \
     if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then \
