@@ -107,9 +107,9 @@ jobs:
                 bunx supabase link --project-ref "$REF" --password "PlaceholderUnusedForApiDirectives"; \
                 \
                 echo "Executing Database Schema migrations..."; \
-                npm run db:push -- --file migrations/0001_init.sql; \
+                bun run db:push -- --file migrations/0001_init.sql; \
                 bunx supabase secrets set FRA_CRON_SECRET="$FRA_CRON_SECRET"; \
-                npm run deploy:functions -- --no-verify-jwt; \
+                bun run deploy:functions -- --no-verify-jwt; \
                 \
                 echo "Wiring Billing schemas and Payment gateways..."; \
                 bunx supabase db push --file migrations/0002_subscriptions.sql; \
