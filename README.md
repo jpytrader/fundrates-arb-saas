@@ -71,7 +71,7 @@ supabase-saas/
 4. **Apply billing schema** — `supabase db push migrations/0002_subscriptions.sql` (after installing the Stripe Sync Engine — see [`docs/BILLING.md`](./docs/BILLING.md))
 5. **Deploy functions** — `supabase functions deploy fra-engine create-checkout create-portal-session`
 6. **Set secrets** — see [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) and [`docs/BILLING.md`](./docs/BILLING.md)
-7. **Drop the client component into your app** — see [`client/index.tsx`](./client/index.tsx)
+7. **Drop the client component into your app** — see [`client/FundratesArb.tsx`](./client/FundratesArb.tsx)
 
 ## Billing (Mandatory)
 
