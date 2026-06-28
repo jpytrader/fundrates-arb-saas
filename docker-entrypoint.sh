@@ -1,9 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Map environment variable to the keyword supabase CLI expects
-export SUPABASE_PASSWORD="${SUPABASE_DB_PASSWORD:-}"
-
 if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
   echo "Skipping build-time provisioning: Missing cluster variables."
 else
@@ -12,11 +9,13 @@ else
   
   # 🌟 Automate creation of the missing config.toml file
   bunx supabase init --force
-  bunx supabase link --project-ref "$REF"
   
+  # Drop the 'link' command entirely!
+  # bunx supabase link --project-ref "$REF"
+  # ...and pass the password inline into 'db push' wrapper natively via pass-through operator
   echo "Executing Database Schema migrations..."
-  bun run db:push
-  
+  bun run db:push -- --password "$SUPABASE_DB_PASSWORD"
+              
   # 🌟 Inject environment configurations into the management tier
   echo "Provisioning remote project secrets..."
   bunx supabase secrets set \
