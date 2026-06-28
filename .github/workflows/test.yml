@@ -111,17 +111,24 @@ jobs:
             bunx supabase link --project-ref "$REF"
             
             echo "Executing Database Schema migrations..."
+            bun run db:push
+            
+            # 🌟 Inject environment configurations into the management tier
+            echo "Provisioning remote project secrets..."
+            bunx supabase secrets set \
+              FRA_CRON_SECRET="$FRA_CRON_SECRET" \
+              STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" \
+              STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET"
 
-            bun run db:push -- --file migrations/0001_init.sql
-            bunx supabase secrets set FRA_CRON_SECRET="$FRA_CRON_SECRET"
+            echo "Deploying operational engine components - billing schemas, payment gateways, and serverless functions..."
             bun run deploy:functions -- --no-verify-jwt
-
-            echo "Wiring Billing schemas and Payment gateways..."
-
-            bunx supabase db push --file migrations/0002_subscriptions.sql
-            bunx supabase secrets set STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY"
             bunx supabase functions deploy create-checkout --no-verify-jwt
             bunx supabase functions deploy create-portal-session --no-verify-jwt
+            bunx supabase functions deploy stripe-webhook-fra
+            bunx supabase functions deploy reconcile-subscriptions
+            bunx supabase functions deploy revoke-exchange-key
+            bunx supabase functions deploy rotate-exchange-key
+            echo "Database provisioning matrix established."
 
             echo "Scheduling persistent database background CRON automation..."
             CRON_1_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-engine-tick');" | grep -q "true" && echo "true" || echo "false")
@@ -154,16 +161,7 @@ jobs:
             else
               echo "CRON 'fra-reconcile-subscriptions' already exists. Skipping scheduling."
             fi
-            
-            echo "Deploying operational engine components, tags, and webhooks..."
-
-            bunx supabase db push --file migrations/0004_billing_resilience.sql
-            bunx supabase secrets set STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET"
-            bunx supabase functions deploy stripe-webhook-fra
-            bunx supabase functions deploy reconcile-subscriptions
-            bunx supabase functions deploy revoke-exchange-key
-            bunx supabase functions deploy rotate-exchange-key
-            echo "Database provisioning matrix established."
+            echo "Infrastructure provisioning completed successfully."
           fi
           # Hand over execution natively to the standard container CMD
           exec "$@"
