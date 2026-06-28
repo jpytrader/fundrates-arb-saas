@@ -18,7 +18,7 @@ else
   echo "$REF" > supabase/.temp/project-ref
 
   echo "Executing Database Schema migrations..."
-  bun run db:push -- --password "$SUPABASE_DB_PASSWORD"
+  bun run db:push -- --password "$SUPABASE_DB_PASSWORD" --use-pooler
               
   # 🌟 Inject environment configurations into the management tier
   echo "Provisioning remote project secrets..."
