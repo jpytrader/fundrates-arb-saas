@@ -5,8 +5,8 @@
   "description": "Supabase SaaS wrapper for @jpytrader/fundrates-arb — provides external SupabaseStateStore adapter and server-side engine runner",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "deploy:functions": "supabase functions deploy fra-engine",
-    "db:push": "supabase db push",
+    "deploy:functions": "bunx supabase functions deploy fra-engine",
+    "db:push": "bunx supabase db push",
     "lint": "oxlint",
     "build": "bun build ./index.ts ./index.cli.tsx --outdir=./dist --naming=[name].js --minify"
   },

@@ -1,9 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# 🌟 Make supabase available at service runtime since bun is used
-export PATH="/app/node_modules/.bin:$PATH"
-
 if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
   echo "Skipping build-time provisioning: Missing cluster variables."
 else
