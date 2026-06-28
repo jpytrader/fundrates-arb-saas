@@ -20,8 +20,8 @@ else
 
   # 🌟 Force the CLI configuration to target the IPv4 pooler grid natively
   # 🌟 Overwrites the native [db.pooler] variables directly inside the existing table
-  sed -i 's/# connection_string = ""/connection_string = "postgresql:\/\/postgres.'$REF':'$SUPABASE_DB_PASSWORD'@://supabase.com\/postgres"/g' supabase/config.toml
-  sed -i 's/external_interface = "ipv6"/external_interface = "ipv4"/g' supabase/config.toml
+  sed -i "s:# connection_string = \"\":connection_string = \"postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@://supabase.com\":g" supabase/config.toml
+  sed -i "s:external_interface = \"ipv6\":external_interface = \"ipv4\":g" supabase/config.toml
 
   echo "Executing Database Schema migrations..."
   bun run db:push -- --password "$SUPABASE_DB_PASSWORD"
