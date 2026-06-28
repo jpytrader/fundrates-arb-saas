@@ -11,8 +11,12 @@ else
   bunx supabase init --force
   
   # Drop the 'link' command entirely!
-  # bunx supabase link --project-ref "$REF"
   # ...and pass the password inline into 'db push' wrapper natively via pass-through operator
+  # bunx supabase link --project-ref "$REF"
+  # Bypass the interactive link command completely by manually writing the ref file!
+  mkdir -p supabase/.temp
+  echo "$REF" > supabase/.temp/project-ref
+
   echo "Executing Database Schema migrations..."
   bun run db:push -- --password "$SUPABASE_DB_PASSWORD"
               
