@@ -118,13 +118,8 @@ jobs:
             echo "$REF" > supabase/.temp/project-ref
 
             # 🌟 Force the CLI configuration to target the IPv4 pooler grid natively
-            cat << CONF_EOF >> supabase/config.toml
-
-            [db.pooler]
-            enabled = true
-            port = 6543
-            ConnectionString = "postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@://supabase.com"
-            CONF_EOF
+            # 🌟 Appends the pooler parameters cleanly using a standard string line (No indents risk)
+            printf "\n[db.pooler]\nenabled = true\nport = 6543\nConnectionString = \"postgresql://postgres.%s:%s@://supabase.com\"\n" "$REF" "$SUPABASE_DB_PASSWORD" >> supabase/config.toml
 
             echo "Executing Database Schema migrations..."
             bun run db:push -- --password "$SUPABASE_DB_PASSWORD"
