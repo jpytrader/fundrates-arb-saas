@@ -57,8 +57,12 @@ jobs:
           cp -r dist "$WORK/"
           [ -d "migrations" ] && cp -r migrations "$WORK/"
           [ -d "edge-functions" ] && cp -r edge-functions "$WORK/"
-          cp package.json package-lock.json bun.lock* .npmrc "$WORK/" 2>/dev/null || true
+          cp package*.json bun.lock* .npmrc "$WORK/" 2>/dev/null || true
           cp *.md "$WORK/" 2>/dev/null || true
+
+          # 🌟 Automate the production rewrite of package.json and prepend bunx to supabase CLI
+          sed -i 's/"db:push": "supabase/"db:push": "bunx supabase/g' "$WORK/package.json"
+          sed -i 's/"deploy:functions": "supabase/"deploy:functions": "bunx supabase/g' "$WORK/package.json"
 
           # DYNAMIC GENERATION OF ORCHESTRATION ASSETS INSIDE THE WORKSPACE
           echo "Generating lightweight single-stage production Dockerfile..."
@@ -95,9 +99,6 @@ jobs:
           cat << 'EOF' > "$WORK/docker-entrypoint.sh"
           #!/bin/bash
           set -euo pipefail
-
-          # 🌟 Make supabase available at service runtime since bun is used
-          export PATH="/app/node_modules/.bin:$PATH"
 
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "Skipping build-time provisioning: Missing cluster variables."
