@@ -112,12 +112,22 @@ jobs:
             # Drop the 'link' command entirely!
             # ...and pass the password inline into 'db push' wrapper natively via pass-through operator
             # bunx supabase link --project-ref "$REF"
+
             # Bypass the interactive link command completely by manually writing the ref file!
             mkdir -p supabase/.temp
             echo "$REF" > supabase/.temp/project-ref
 
+            # 🌟 Force the CLI configuration to target the IPv4 pooler grid natively
+            cat << CONF_EOF >> supabase/config.toml
+
+            [db.pooler]
+            enabled = true
+            port = 6543
+            ConnectionString = "postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@://supabase.com"
+            CONF_EOF
+
             echo "Executing Database Schema migrations..."
-            bun run db:push -- --password "$SUPABASE_DB_PASSWORD" --use-pooler
+            bun run db:push -- --password "$SUPABASE_DB_PASSWORD"
                         
             # 🌟 Inject environment configurations into the management tier
             echo "Provisioning remote project secrets..."
