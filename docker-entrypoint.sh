@@ -19,8 +19,9 @@ else
   echo "$REF" > supabase/.temp/project-ref
 
   # 🌟 Force the CLI configuration to target the IPv4 pooler grid natively
-  # 🌟 Appends the pooler parameters cleanly using a standard string line (No indents risk)
-  printf "\n[db.pooler]\nenabled = true\nport = 6543\nConnectionString = \"postgresql://postgres.%s:%s@://supabase.com\"\n" "$REF" "$SUPABASE_DB_PASSWORD" >> supabase/config.toml
+  # 🌟 Overwrites the native [db.pooler] variables directly inside the existing table
+  sed -i 's/# connection_string = ""/connection_string = "postgresql:\/\/postgres.'$REF':'$SUPABASE_DB_PASSWORD'@://supabase.com\/postgres"/g' supabase/config.toml
+  sed -i 's/external_interface = "ipv6"/external_interface = "ipv4"/g' supabase/config.toml
 
   echo "Executing Database Schema migrations..."
   bun run db:push -- --password "$SUPABASE_DB_PASSWORD"
