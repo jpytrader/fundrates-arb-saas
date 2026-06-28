@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# Map environment variable to the keyword supabase CLI expects
+export SUPABASE_PASSWORD="${SUPABASE_DB_PASSWORD:-}"
+
 if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
   echo "Skipping build-time provisioning: Missing cluster variables."
 else
