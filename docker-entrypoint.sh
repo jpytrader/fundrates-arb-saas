@@ -17,14 +17,17 @@ else
   # Bypass the interactive link command completely by manually writing the ref file!
   mkdir -p supabase/.temp
   echo "$REF" > supabase/.temp/project-ref
-
-  # 🌟 Force the CLI configuration to target the IPv4 pooler grid natively
-  # 🌟 Overwrites the native [db.pooler] variables directly inside the existing table
-  # sed -i "s:# connection_string = \"\":connection_string = \"postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@://supabase.com\":g" supabase/config.toml
-  # sed -i "s:external_interface = \"ipv6\":external_interface = \"ipv4\":g" supabase/config.toml
-  # Exposing these variables forces the CLI to overwrite config.toml dynamically.
-  export SUPABASE_CONFIG_DB_POOLER_CONNECTION_STRING="postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@://supabase.com"
-  export SUPABASE_CONFIG_DB_POOLER_EXTERNAL_INTERFACE="ipv4"
+  
+  # 🌟 FIXED: Read the original config.toml content into shell memory
+  ORIG_CONFIG=$(cat supabase/config.toml)
+  
+  # 🌟 FIXED: Use native Bash string modifiers to safely overwrite parameters without delimiters or sed crashes!
+  POOLER_URL="postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@://supabase.com"
+  MOD_CONFIG="${ORIG_CONFIG//\# connection_string = \"\"/connection_string = \"$POOLER_URL\"}"
+  FINAL_CONFIG="${MOD_CONFIG//external_interface = \"ipv6\"/external_interface = \"ipv4\"}"
+  
+  # Write the completed configuration file back out to disk safely
+  echo "$FINAL_CONFIG" > supabase/config.toml
 
   echo "Executing Database Schema migrations..."
   bun run db:push -- --password "$SUPABASE_DB_PASSWORD"
