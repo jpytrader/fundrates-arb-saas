@@ -9,6 +9,8 @@
 //   * Audit row in public.fra_key_rotations with caller IP.
 //
 // Companion docs: docs/ARCHITECTURE.md §Vault rotation v2
+// 🌟 PMaps the raw definition file directly to your standalone JavaScript bundle!
+// @deno-types="../../_shared/packages/fundrates-arb/index.d.ts"
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { z } from 'npm:zod@3.23.8';
