@@ -112,7 +112,7 @@ jobs:
             # 🌟 Dynamically construct the pre-authenticated IPv4 connection pooler URL
             # Because we use standard single-quotes 'EOF' for this block, password special characters
             # remain completely untouched in memory as plain data tokens.
-            DB_POOLER_URL="postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@://supabase.com"
+            DB_POOLER_URL="postgresql://postgres.\${REF}:\${SUPABASE_DB_PASSWORD}\@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
 
             echo "Executing single-pass Database Schema migrations over IPv4 Pooler..."
             # 🌟 Modern supabase CLI reads this flag flawlessly, bypassing all IPv6 routing restrictions!
