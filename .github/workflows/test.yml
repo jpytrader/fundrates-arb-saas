@@ -50,8 +50,6 @@ jobs:
           rm -rf edge-functions/_shared/packages/fundrates-arb/types/__tests__
           rm -rf edge-functions/_shared/packages/fundrates-arb/dist
 
-          printf '{\n  "imports": {\n    "npm:@jpytrader/fundrates-arb@^0.1.0": "./_shared/packages/fundrates-arb/index.js"\n  },\n  "scopes": {\n    "./_shared/packages/fundrates-arb/index.js": {\n      "types": "./_shared/packages/fundrates-arb/index.d.ts"\n    }\n  }\n}\n' > edge-functions/import_map.json
-
       # - run: bun run test:e2e --if-present
 
       - name: Format Clean Production Bundle and Open Pull Request
