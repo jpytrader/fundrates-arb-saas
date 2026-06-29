@@ -1,6 +1,6 @@
 {
   "imports": {
-    "npm:@jpytrader/fundrates-arb@^0.1.0": "../_shared/packages/fundrates-arb/esm/index.js"
+    "npm:@jpytrader/fundrates-arb@^0.1.0": "../_shared/packages/fundrates-arb/index.js"
   },
   "scopes": {
     "../_shared/packages/fundrates-arb/esm/index.js": {
