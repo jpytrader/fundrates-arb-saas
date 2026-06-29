@@ -51,13 +51,13 @@ else
   if [ "$CRON_1_EXISTS" = "false" ]; then
     echo "Scheduling fra-engine-tick..."
     bunx supabase db query --linked "
-      SELECT cron.schedule('fra-engine-tick', '* * * * *', \$\$\$
+      SELECT cron.schedule('fra-engine-tick', '* * * * *', \$\$
         SELECT net.http_post(
           url := '$SUPABASE_URL/functions/v1/fra-engine',
           headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', '$FRA_CRON_SECRET'),
           body := '{}'::jsonb
         );
-      \$\$\$);
+      \$\$);
     "
   else
     echo "CRON 'fra-engine-tick' already exists. Skipping scheduling."
