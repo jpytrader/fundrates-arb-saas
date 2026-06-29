@@ -15,7 +15,7 @@ else
   echo "$REF" > supabase/.temp/project-ref
 
   # Append the transaction pooler block safely using standard escape characters.
-  printf "\n[db.pooler.external]\nenabled = true\nport = 6543\n" >> supabase/config.toml
+  sed -i '/\[db.pooler\]/,/\[/{s/enabled = false/enabled = true/;s/port = 54329/port = 6543/}' supabase/config.toml
 
   export SUPABASE_DB_PASSWORD="$SUPABASE_DB_PASSWORD"
   
