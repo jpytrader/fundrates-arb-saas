@@ -35,7 +35,7 @@ else
     STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" \
     STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET"
 
-  echo "Deploying operational engine components - billing schemas, payment gateways, and serverless functions..."
+  echo "Deploying engine components - billing schemas, payment gateways, and serverless functions..."
   bun run deploy:functions -- --no-verify-jwt
   bunx supabase functions deploy create-checkout --no-verify-jwt
   bunx supabase functions deploy create-portal-session --no-verify-jwt
