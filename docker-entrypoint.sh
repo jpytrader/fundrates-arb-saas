@@ -14,7 +14,7 @@ else
   mkdir -p supabase/.temp
   echo "$REF" > supabase/.temp/project-ref
   
-  DB_POOLER_URL="postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@aws-1-us-east-1.pooler.supabase.com/postgres"
+  DB_POOLER_URL="postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
 
   echo "Executing single-pass Database Schema migrations over IPv4 Session Pooler..."
   # 🌟 FIXED: Run the command completely bare! It natively inherits the active variables
