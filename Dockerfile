@@ -14,7 +14,7 @@ COPY migrations/ ./migrations/
 COPY edge-functions/ ./edge-functions/
 
 # 🌟 Install the exact stable Supabase CLI binary package natively via Bun
-# RUN bun add supabase@1.192.0
+# RUN bun add supabase@2.108.0
 
 # Inject the production orchestration entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/

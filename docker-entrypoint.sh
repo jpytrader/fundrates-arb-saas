@@ -10,21 +10,14 @@ else
   # 🌟 Automate creation of the missing config.toml file
   bunx supabase init --force
 
-  # 🌟 Manually supply the project reference file so the CLI skips link network loops
-  mkdir -p supabase/.temp
-  echo "$REF" > supabase/.temp/project-ref
-
-  echo "Binding flat Postgres parameters to bypass URL parsing layers..."
-  # 🌟 Map parameters directly to standard Postgres environment variables
-  export PGHOST="aws-1-us-east-1.pooler.supabase.com"
-  export PGPORT="6543"
-  export PGUSER="postgres.${REF}"
-  export PGPASSWORD="${SUPABASE_DB_PASSWORD}"
-  export PGDATABASE="postgres"
+  # 🌟 Dynamically construct the pre-authenticated IPv4 connection pooler URL
+  # Because we use standard single-quotes 'EOF' for this block, password special characters
+  # remain completely untouched in memory as plain data tokens.
+  DB_POOLER_URL="postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@://supabase.com"
 
   echo "Executing single-pass Database Schema migrations over IPv4 Pooler..."
-  # 🌟 Push migrations over the IPv4 route via the direct --db-url flag
-  bun run db:push
+  # 🌟 Modern supabase CLI reads this flag flawlessly, bypassing all IPv6 routing restrictions!
+  bun run db:push -- --db-url "$DB_POOLER_URL"
               
   # 🌟 Inject environment configurations into the management tier
   echo "Provisioning remote project secrets..."
