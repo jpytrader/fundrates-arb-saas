@@ -65,7 +65,6 @@ jobs:
           mkdir -p edge-functions/_shared/packages/fundrates-arb
 
           cp -r node_modules/@jpytrader/fundrates-arb/dist edge-functions/_shared/packages/fundrates-arb/ 2>/dev/null || true
-          # 🌟 Hard delete the type tests subfolders so the linter ignores them completely
           rm -rf edge-functions/_shared/packages/fundrates-arb/types/__tests__
 
       - run: bun run lint

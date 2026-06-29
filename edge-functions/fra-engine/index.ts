@@ -25,8 +25,6 @@
 // in-memory for SUB_CACHE_TTL_MS (~45s) to avoid hammering the DB. On query
 // failure we fail closed (reuse last cache or empty), so canceled users
 // never receive ticks.
-// 🌟 PMaps the raw definition file directly to your standalone JavaScript bundle!
-// @deno-types="../../_shared/packages/fundrates-arb/index.d.ts"
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import {

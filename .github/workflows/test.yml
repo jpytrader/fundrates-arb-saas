@@ -47,7 +47,7 @@ jobs:
           cp -r node_modules/@jpytrader/fundrates-arb/dist/types/* edge-functions/_shared/packages/fundrates-arb/ 2>/dev/null || true
 
           # Inject the import map directly into the repo tree so it is permanently baked into the release branch!
-          printf '{\n  "imports": {\n    "npm:@jpytrader/fundrates-arb@^0.1.0": "./_shared/packages/fundrates-arb/index.js"\n  }\n}\n' > edge-functions/import_map.json
+          printf '{\n  "imports": {\n    "npm:@jpytrader/fundrates-arb@^0.1.0": "./_shared/packages/fundrates-arb/index.js"\n  },\n  "scopes": {\n    "./_shared/packages/fundrates-arb/index.js": {\n      "types": "./_shared/packages/fundrates-arb/index.d.ts"\n    }\n  }\n}\n' > edge-functions/import_map.json
 
       # - run: bun run test:e2e --if-present
 
