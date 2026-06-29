@@ -10,15 +10,17 @@ else
   # 🌟 Automate creation of the missing config.toml file
   bunx supabase init --force
 
-  # 🌟 Use Bun to safely percent-encode special characters (like colons, slashes, or symbols) in your password
-  ENCODED_PASSWORD=$(bun -e "console.log(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
-
-  # 🌟 Dynamically construct the pre-authenticated IPv4 connection pooler URL
-  DB_POOLER_URL="postgresql://postgres.${REF}:${ENCODED_PASSWORD}@://supabase.com"
+  echo "Binding flat Postgres parameters to bypass URL parsing layers..."
+  # 🌟 Map parameters directly to standard Postgres environment variables
+  export PGHOST="aws-1-us-east-1.pooler.supabase.com"
+  export PGPORT="6543"
+  export PGUSER="postgres.${REF}"
+  export PGPASSWORD="${SUPABASE_DB_PASSWORD}"
+  export PGDATABASE="postgres"
 
   echo "Executing single-pass Database Schema migrations over IPv4 Pooler..."
   # 🌟 Push migrations over the IPv4 route via the direct --db-url flag
-  bun run db:push -- --db-url "$DB_POOLER_URL"
+  bun run db:push
               
   # 🌟 Inject environment configurations into the management tier
   echo "Provisioning remote project secrets..."
