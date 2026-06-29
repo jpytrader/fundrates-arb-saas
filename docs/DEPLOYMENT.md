@@ -100,7 +100,7 @@ Read them server-side from the edge function via `vault.decrypted_secrets`.
 In your Ionic / Vite / Next app:
 
 ```bash
-npm install @vireson/funding-rate-arb @supabase/supabase-js
+npm install @jpytrader/fundrates-arb @supabase/supabase-js
 ```
 
 Then drop in `client/FundratesArv.tsx` and configure the env vars in

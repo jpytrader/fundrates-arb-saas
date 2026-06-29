@@ -1,6 +1,6 @@
 // supabase-saas/client/RotateKeyDialog.tsx
 //
-// Thin React modal that consumers of @vireson/supabase-saas can drop into
+// Thin React modal that consumers of @jpytrader/fundrates-arb-saas can drop into
 // their settings page to let users rotate exchange API keys without secrets
 // ever round-tripping to a custom backend.
 //

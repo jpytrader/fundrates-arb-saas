@@ -2,7 +2,7 @@
 
 ## Goals
 
-1. **Zero modifications** to `@vireson/funding-rate-arb`. The package's
+1. **Zero modifications** to `@jpytrader/fundrates-arb`. The package's
    isolation constraint (project-agnostic, no host backend dependencies) is
    preserved by injecting all Supabase wiring through the public
    `persistenceStore` prop and the public `StateStore` interface.
@@ -14,7 +14,7 @@
 
 | Concern              | Client engine                       | Server engine (edge fn)              |
 |----------------------|-------------------------------------|--------------------------------------|
-| Source code          | `@vireson/funding-rate-arb` (`<FundingRateArb />`) | `edge-functions/fra-engine` — **imports** `ArbEngine` from the same package |
+| Source code          | `@jpytrader/fundrates-arb` (`<FundingRateArb />`) | `edge-functions/fra-engine` — **imports** `ArbEngine` from the same package |
 | Runtime              | Browser / WebView                   | Deno on Supabase Edge                |
 | Triggers scans       | Yes (UI-driven, `setInterval`)      | Yes (pg_cron, every 60s, `manualTick: true` + `engine.tick()`) |
 | Places real orders   | Yes (when user has keys configured) | Yes — adapter is built from Vault payload; falls back to dry-run when keys are absent |
@@ -66,7 +66,7 @@ subscribe to `fra_events` — see the example app for a starting point.
 
 | Limitation                                       | Planned fix                              |
 | ------------------------------------------------ | ---------------------------------------- |
-| ~~Server tick only accrues funding, no order exec~~ | **Done (F1)**: edge function now imports `ArbEngine` from `@vireson/funding-rate-arb` and runs `engine.tick()` per tenant. No accrual logic is duplicated server-side. |
+| ~~Server tick only accrues funding, no order exec~~ | **Done (F1)**: edge function now imports `ArbEngine` from `@jpytrader/fundrates-arb` and runs `engine.tick()` per tenant. No accrual logic is duplicated server-side. |
 | No per-user cron frequency                       | Add a `tick_interval_secs` column and per-user schedule |
 | No self-service rotation UI inside the SaaS app  | Ship `<VaultKeysAdmin />` page consuming the already-shipped `rotate-exchange-key` function (see §Vault rotation v2) |
 | Webhook resilience relies entirely on Stripe Sync Engine | Add native `stripe-webhook-fra` + DLQ + hourly reconciliation (S3) |

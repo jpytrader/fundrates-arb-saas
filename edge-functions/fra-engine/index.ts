@@ -14,7 +14,7 @@
 // identical sequential logic" — the server tick is "Paper-on-server".
 //
 // `ArbEngine`, the exchange adapter factories, and `MemoryStore` are exported
-// from `@vireson/funding-rate-arb` (F1). None of them touch `window`,
+// from `@jpytrader/fundrates-arb` (F1). None of them touch `window`,
 // `document`, `localStorage`, or React — they're plain TypeScript classes,
 // safe to run in Deno. The component remains 100% self-contained: this file
 // is a *consumer*, not a fork.
@@ -38,7 +38,7 @@ import {
   type ArbConfig,
   type ExchangeAdapter,
   type PersistedState,
-} from 'npm:@vireson/funding-rate-arb@^0.1.0';
+} from 'npm:@jpytrader/fundrates-arb@^0.1.0';
 import { createLogger } from '../_shared/logger.ts';
 
 const log = createLogger('fra-engine');
