@@ -13,11 +13,8 @@ else
   # 🌟 STEP 1: Manually supply the project reference file to clear the CLI's verification gate
   mkdir -p supabase/.temp
   echo "$REF" > supabase/.temp/project-ref
-
-  export SUPABASE_DB_HOST="aws-1-us-east-1.pooler.supabase.com"
-  export SUPABASE_DB_PORT="5432"
-  export SUPABASE_DB_USER="postgres.${REF}"
-  export SUPABASE_DB_PASSWORD="${SUPABASE_DB_PASSWORD}"
+  
+  export SUPABASE_DB_URL="postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@://aws-1-us-east-1.pooler.supabase.com"
 
   echo "Executing single-pass Database Schema migrations over IPv4 Session Pooler..."
   # 🌟 FIXED: Run the command completely bare! It natively inherits the active variables
