@@ -40,7 +40,7 @@ jobs:
 
       - name: Bundle pre-assembled release edge-function shared artifacts
         run: |
-          # 🌟 Execute the JavaScript micro-bundler natively on the GitHub CI runner (Bun is fully defined here!)
+          # 🌟 Execute a JavaScript micro-bundler natively on the GitHub CI runner (Bun is fully defined here!)
           # Rolls up all required asynchronous chunks and dumps a clean 'index.js' straight into edge-functions/
           bun run scripts/bundle-arb.mjs
 
