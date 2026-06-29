@@ -62,12 +62,15 @@ jobs:
         run: |
           ls -R node_modules/@jpytrader/fundrates-arb
           # Securely copy the plain files into repository source code tree
-          mkdir -p edge-functions/_shared/packages
-          cp -r node_modules/@jpytrader/fundrates-arb edge-functions/_shared/packages/
+          mkdir -p edge-functions/_shared/packages/fundrates-arb
+
+          cp -r node_modules/@jpytrader/fundrates-arb/dist/esm edge-functions/_shared/packages/fundrates-arb/
+          cp -r node_modules/@jpytrader/fundrates-arb/dist/types edge-functions/_shared/packages/fundrates-arb/
+          rm -rf edge-functions/_shared/packages/fundrates-arb/types/__tests__
 
           # Inject local Deno import map into repository source code tree
           # Guarantees that the configuration rule travels permanently inside your branch output.
-          printf '{\n  "imports": {\n    "npm:@jpytrader/fundrates-arb@^0.1.0": "./_shared/packages/fundrates-arb/index.ts"\n  }\n}\n' > edge-functions/import_map.json
+          printf '{\n  "imports": {\n    "npm:@jpytrader/fundrates-arb@^0.1.0": "./_shared/packages/fundrates-arb/esm/index.js"\n  }\n}\n' > edge-functions/import_map.json
 
       - run: bun run lint
       - run: bun run test --if-present
