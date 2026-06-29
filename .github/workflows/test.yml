@@ -38,18 +38,6 @@ jobs:
       - name: Generate native Bun lockfile for production parity
         run: bun install --backend=hardlink --no-save || bun install --no-save
 
-      - name: Bundle pre-assembled release edge-function shared artifacts
-        run: |
-          # 🌟 Execute a JavaScript micro-bundler natively on the GitHub CI runner (Bun is fully defined here!)
-          # Rolls up all required asynchronous chunks and dumps a clean 'index.js' straight into edge-functions/
-          bun run scripts/bundle-arb.mjs
-
-          cp -r node_modules/@jpytrader/fundrates-arb/dist/types/* edge-functions/_shared/packages/fundrates-arb/ 2>/dev/null || true
-          
-          rm -rf edge-functions/_shared/packages/fundrates-arb/__tests__
-          rm -rf edge-functions/_shared/packages/fundrates-arb/types/__tests__
-          rm -rf edge-functions/_shared/packages/fundrates-arb/dist
-
       # - run: bun run test:e2e --if-present
 
       - name: Format Clean Production Bundle and Open Pull Request

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // 🌟 Using explicit node: prefixes instructs oxlint that these are core system utilities!
 import { join } from "node:path";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 
-const entryPoint = join(process.cwd(), "node_modules/@jpytrader/fundrates-arb/dist/esm/index.js");
+const entryPoint = join(process.cwd(), "edge-functions/_shared/packages/fundrates-arb/src/index.ts");
 const outMapFile = join(process.cwd(), "edge-functions/_shared/packages/fundrates-arb/index.js");
 
 console.log("Verifying pre-staged distribution package parameters...");
@@ -17,7 +17,7 @@ const result = await Bun.build({
   entrypoints: [entryPoint],
   target: "browser", // Generates standard, web-compliant module tracks
   format: "esm",     // Strictly generates modern import/export syntax for Deno
-  minify: true,      // Safely retains minification properties
+  minify: false,      // Safely retains minification properties
 });
 
 if (!result.success) {
@@ -28,6 +28,6 @@ if (!result.success) {
 // 🌟 Safely write exactly ONE flat file asset out of memory down to disk
 // ...completely destroys the possibility of external code-splitting chunks leaking to branch.
 const compiledCodeText = await result.outputs[0].text();
-writeFileSync(outMapFile, compiledCodeText, "utf8");
+Bun.write(outMapFile, compiledCodeText);
 
 console.log("Bundle compiled successfully! Standalone index.js created.");
