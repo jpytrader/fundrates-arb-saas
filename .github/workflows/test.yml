@@ -117,16 +117,18 @@ jobs:
             mkdir -p supabase/.temp
             echo "$REF" > supabase/.temp/project-ref
             
-            # 🌟 FIXED: Read the original config.toml content into shell memory
-            ORIG_CONFIG=$(cat supabase/config.toml)
+            echo "Intercept network parameters to enforce strict IPv4 routing..."
+            # 🌟 FIXED: Find the public IPv4 address of the connection pooler endpoint
+            POOLER_IPV4=$(getent ahosts ://supabase.com | grep STREAM | head -n 1 | cut -d' ' -f1 || echo "")
             
-            # 🌟 FIXED: Use native Bash string modifiers to safely overwrite parameters without delimiters or sed crashes!
-            POOLER_URL="postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@://supabase.com"
-            MOD_CONFIG="${ORIG_CONFIG//\# connection_string = \"\"/connection_string = \"$POOLER_URL\"}"
-            FINAL_CONFIG="${MOD_CONFIG//external_interface = \"ipv6\"/external_interface = \"ipv4\"}"
-            
-            # Write the completed configuration file back out to disk safely
-            echo "$FINAL_CONFIG" > supabase/config.toml
+            if [ -n "$POOLER_IPV4" ]; then
+              echo "Mapping project host trees to IPv4 Gateway: $POOLER_IPV4"
+              # 🌟 FIXED: Append local DNS routes to force the CLI's internal connections over IPv4
+              echo "$POOLER_IPV4 db.${REF}.supabase.co" >> /etc/hosts
+              echo "$POOLER_IPV4 ://supabase.com" >> /etc/hosts
+            else
+              echo "Warning: Fallback IPv4 resolution failed. Proceeding with default routing configuration."
+            fi
 
             echo "Executing Database Schema migrations..."
             bun run db:push -- --password "$SUPABASE_DB_PASSWORD"
