@@ -109,12 +109,13 @@ jobs:
             # 🌟 Automate creation of the missing config.toml file
             bunx supabase init --force
             
-            # 🌟 STEP 1: Export the exact variable the CLI reads natively to replace 'supabase link' completely!
-            export SUPABASE_PROJECT_ID="${REF}"
+            # 🌟 Export the exact variable the CLI reads natively to replace 'supabase link' completely!
+            export SUPABASE_ACCESS_TOKEN="${SUPABASE_ACCESS_TOKEN}"
+            export SUPABASE_DB_PASSWORD="${SUPABASE_DB_PASSWORD}"
 
-            export SUPABASE_DB_PASSWORD="$SUPABASE_DB_PASSWORD"
-            
-            # DB_POOLER_URL="postgresql://postgres.${REF}:${SUPABASE_DB_PASSWORD}@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
+            # 🌟 Use the native pipe-feed string (<<<) to supply the password non-interactively!
+            # This triggers the true network lookup, flags the workspace for IPv4, and links the project cleanly.
+            bunx supabase link --project-ref "$REF" <<< "$SUPABASE_DB_PASSWORD"
 
             echo "Executing single-pass Database Schema migrations over IPv4 Session Pooler..."
             # 🌟 FIXED: Run the command completely bare! It natively inherits the active variables
