@@ -18,7 +18,7 @@ else
 
   echo "Executing single-pass Database Schema migrations over IPv4 Session Pooler..."
   # 🌟 FIXED: Run the command completely bare! It natively inherits the active variables
-  bun run db:push
+  bun run db:push -- --db-url "$DB_POOLER_URL"
               
   # 🌟 Inject environment configurations into the management tier
   echo "Provisioning remote project secrets..."
