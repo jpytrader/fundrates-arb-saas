@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "npm:@jpytrader/fundrates-arb@^0.1.0": "./_shared/packages/fundrates-arb/index.ts"
+  }
+}
