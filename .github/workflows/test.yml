@@ -108,13 +108,9 @@ jobs:
             
             # 🌟 Automate creation of the missing config.toml file
             bunx supabase init --force
-
-            # 🌟 STEP 1: Manually supply the project reference file to clear the CLI's verification gate
-            mkdir -p supabase/.temp
-            echo "$REF" > supabase/.temp/project-ref
-
-            # Append the transaction pooler block safely using standard escape characters.
-            sed -i '/\[db.pooler\]/,/\[/{s/enabled = false/enabled = true/;s/port = 54329/port = 6543/}' supabase/config.toml
+            
+            # 🌟 STEP 1: Export the exact variable the CLI reads natively to replace 'supabase link' completely!
+            export SUPABASE_PROJECT_ID="${REF}"
 
             export SUPABASE_DB_PASSWORD="$SUPABASE_DB_PASSWORD"
             
