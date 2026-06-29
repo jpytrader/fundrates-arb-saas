@@ -15,7 +15,6 @@ else
   
   mkdir -p supabase/functions
   cp -r edge-functions/* supabase/functions/ 2>/dev/null || true
-  cp .npmrc supabase/functions/.npmrc 2>/dev/null || true
   
   # 🌟 Export the exact variable the CLI reads natively to replace 'supabase link' completely!
   export SUPABASE_ACCESS_TOKEN="${SUPABASE_ACCESS_TOKEN}"
