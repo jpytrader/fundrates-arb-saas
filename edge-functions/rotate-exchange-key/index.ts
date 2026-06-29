@@ -16,7 +16,7 @@ import {
   createHyperliquidAdapter,
   createOKXAdapter,
   DEFAULT_CONFIG,
-} from 'npm:@vireson/funding-rate-arb@^0.1.0';
+} from 'npm:@jpytrader/fundrates-arb@^0.1.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
