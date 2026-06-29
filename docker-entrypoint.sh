@@ -10,6 +10,10 @@ else
   # 🌟 Automate creation of the missing config.toml file
   bunx supabase init --force
 
+  # 🌟 Manually supply the project reference file so the CLI skips link network loops
+  mkdir -p supabase/.temp
+  echo "$REF" > supabase/.temp/project-ref
+
   echo "Binding flat Postgres parameters to bypass URL parsing layers..."
   # 🌟 Map parameters directly to standard Postgres environment variables
   export PGHOST="aws-1-us-east-1.pooler.supabase.com"
