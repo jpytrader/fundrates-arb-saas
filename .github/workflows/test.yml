@@ -110,7 +110,7 @@ jobs:
             bunx supabase init --force
 
             # 🌟 Use Bun to safely percent-encode special characters (like colons, slashes, or symbols) in your password
-            ENCODED_PASSWORD=$(bun -e "echo(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
+            ENCODED_PASSWORD=$(bun -e "console.log(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
 
             # 🌟 Dynamically construct the pre-authenticated IPv4 connection pooler URL
             DB_POOLER_URL="postgresql://postgres.${REF}:${ENCODED_PASSWORD}@://supabase.com"
