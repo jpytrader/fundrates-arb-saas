@@ -46,11 +46,11 @@ else
   echo "Database provisioning matrix established."
 
   echo "Scheduling persistent database background CRON automation..."
-  CRON_1_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-engine-tick');" | grep -q "true" && echo "true" || echo "false")
+  CRON_1_EXISTS=$(bunx supabase db query --linked "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-engine-tick');" | grep -q "true" && echo "true" || echo "false")
   echo "Checking and scheduling persistent database background CRON automation..."
   if [ "$CRON_1_EXISTS" = "false" ]; then
     echo "Scheduling fra-engine-tick..."
-    bunx supabase db execute --string "
+    bunx supabase db query --linked "
       SELECT cron.schedule('fra-engine-tick', '* * * * *', \$\$\$
         SELECT net.http_post(
           url := '$SUPABASE_URL/functions/v1/fra-engine',
@@ -62,11 +62,12 @@ else
   else
     echo "CRON 'fra-engine-tick' already exists. Skipping scheduling."
   fi
-  CRON_2_EXISTS=$(supabase db execute --string "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-reconcile-subscriptions');" | grep -q "true" && echo "true" || echo "false")
+
+  CRON_2_EXISTS=$(bunx supabase db query --linked "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-reconcile-subscriptions');" | grep -q "true" && echo "true" || echo "false")
   if [ "$CRON_2_EXISTS" = "false" ]; then
     echo "Scheduling fra-reconcile-subscriptions..."
-    bunx supabase db execute --string "
-      SELECT cron.schedule('fra-reconcile-subscriptions', '0 * * * *', \$\$
+    bunx supabase db query --linked "
+      SELECT cron.schedule('fra-reconcile-subscriptions', '0 * * * *', \$\$\
         SELECT net.http_post(
           url := 'https://' || '$REF' || '.functions.supabase.co/reconcile-subscriptions',
           headers := jsonb_build_object('x-cron-secret', current_setting('app.settings.fra_cron_secret', true))
@@ -76,6 +77,7 @@ else
   else
     echo "CRON 'fra-reconcile-subscriptions' already exists. Skipping scheduling."
   fi
+
   echo "Infrastructure provisioning completed successfully."
 fi
 # Hand over execution natively to the standard container CMD
