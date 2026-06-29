@@ -19,6 +19,7 @@ const result = await Bun.build({
   target: "browser", // Generates standard, web-compliant module tracks
   format: "esm",     // Strictly generates modern import/export syntax for Deno
   minify: true,      // Safely retains minification properties
+  naming: "index.js"
 });
 
 if (!result.success) {
