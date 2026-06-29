@@ -46,6 +46,8 @@ jobs:
 
           cp -r node_modules/@jpytrader/fundrates-arb/dist/types/* edge-functions/_shared/packages/fundrates-arb/ 2>/dev/null || true
           
+          rm -rf edge-functions/_shared/packages/fundrates-arb/__tests__
+          rm -rf edge-functions/_shared/packages/fundrates-arb/types/__tests__
           rm -rf edge-functions/_shared/packages/fundrates-arb/dist
 
           printf '{\n  "imports": {\n    "npm:@jpytrader/fundrates-arb@^0.1.0": "./_shared/packages/fundrates-arb/index.js"\n  },\n  "scopes": {\n    "./_shared/packages/fundrates-arb/index.js": {\n      "types": "./_shared/packages/fundrates-arb/index.d.ts"\n    }\n  }\n}\n' > edge-functions/import_map.json
@@ -146,7 +148,7 @@ jobs:
               STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" \
               STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET"
 
-            echo "Deploying operational engine components - billing schemas, payment gateways, and serverless functions..."
+            echo "Deploying engine components - billing schemas, payment gateways, and serverless functions..."
             bun run deploy:functions -- --no-verify-jwt
             bunx supabase functions deploy create-checkout --no-verify-jwt
             bunx supabase functions deploy create-portal-session --no-verify-jwt
