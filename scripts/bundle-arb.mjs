@@ -3,7 +3,7 @@
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 
-const entryPoint = join(process.cwd(), "edge-functions/_shared/packages/fundrates-arb/src/index.ts");
+const entryPoint = join(process.cwd(), "edge-functions/_shared/packages/fundrates-arb/dist/esm/index.js");
 const outMapFile = join(process.cwd(), "edge-functions/_shared/packages/fundrates-arb/index.js");
 
 console.log("Verifying pre-staged distribution package parameters...");

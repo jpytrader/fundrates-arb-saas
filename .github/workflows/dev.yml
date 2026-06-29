@@ -58,20 +58,16 @@ jobs:
           ARB_TAG: 'v0.1.0'
         run: node scripts/install-arb.mjs
       
-      - name: Debug downloaded package structure plus pre-assemble and bundle edge-functions shared artifacts
+      - name: Debug downloaded package structure and pre-assemble edge-functions shared artifacts
         run: |
           ls -R node_modules/@jpytrader/fundrates-arb
           # Securely copy the plain files into repository source code tree
           rm -rf edge-functions/_shared/packages/fundrates-arb
           mkdir -p edge-functions/_shared/packages/fundrates-arb
 
-          cp -r node_modules/@jpytrader/fundrates-arb/src edge-functions/_shared/packages/fundrates-arb/ 2>/dev/null || true
-          
-          # 🌟 Execute a JavaScript micro-bundler natively on the GitHub CI runner (Bun is fully defined here!)
-          # Rolls up all required asynchronous chunks and dumps a clean 'index.js' straight into edge-functions/
-          bun run scripts/bundle-arb.mjs
+          cp -r node_modules/@jpytrader/fundrates-arb/dist edge-functions/_shared/packages/fundrates-arb/ 2>/dev/null || true
+          rm -rf edge-functions/_shared/packages/fundrates-arb/dist/types/__tests__
 
-          rm -rf edge-functions/_shared/packages/fundrates-arb/dist
       - run: bun run lint
       - run: bun run test --if-present
       - run: bun run build
