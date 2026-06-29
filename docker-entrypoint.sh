@@ -10,6 +10,12 @@ else
   # 🌟 Automate creation of the missing config.toml file
   bunx supabase init --force
   
+  mkdir -p supabase/migrations
+  cp -r migrations/* supabase/migrations/ 2>/dev/null || true
+  
+  mkdir -p supabase/functions
+  cp -r edge-functions/* supabase/functions/ 2>/dev/null || true
+  
   # 🌟 Export the exact variable the CLI reads natively to replace 'supabase link' completely!
   export SUPABASE_ACCESS_TOKEN="${SUPABASE_ACCESS_TOKEN}"
   export SUPABASE_DB_PASSWORD="${SUPABASE_DB_PASSWORD}"
