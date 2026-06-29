@@ -62,10 +62,11 @@ jobs:
         run: |
           ls -R node_modules/@jpytrader/fundrates-arb
           # Securely copy the plain files into repository source code tree
+          rm -rf edge-functions/_shared/packages/fundrates-arb
           mkdir -p edge-functions/_shared/packages/fundrates-arb
 
           cp -r node_modules/@jpytrader/fundrates-arb/dist edge-functions/_shared/packages/fundrates-arb/ 2>/dev/null || true
-          rm -rf edge-functions/_shared/packages/fundrates-arb/types/__tests__
+          rm -rf edge-functions/_shared/packages/fundrates-arb/dist/types/__tests__
 
       - run: bun run lint
       - run: bun run test --if-present
