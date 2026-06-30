@@ -3,7 +3,7 @@ FROM oven/bun:alpine
 WORKDIR /app
 
 # 🌟 Install Git, Bash, and the missing system library compatibility wrappers needed by Supabase
-RUN apk add --no-cache git bash libc6-compat curl
+RUN apk add --no-cache git bash libc6-compat
 
 COPY README.md package*.json bun.lock* .npmrc ./
 RUN bun install --production --no-frozen-lockfile
