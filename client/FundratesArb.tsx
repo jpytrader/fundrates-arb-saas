@@ -24,7 +24,7 @@ export function index() {
   const { store, userId, revision, subscription } = useSupabaseFra(supabase);
 
   return (
-    <SubscriptionGate supabase={supabase} userId={userId} priceId={STRIPE_PRICE_ID}>
+    <SubscriptionGate supabase={supabase} userId={userId} priceId={STRIPE_PRICE_ID} subscription={subscription}>
       {store ? (
         <>
           <FundingRateArb

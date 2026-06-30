@@ -1,6 +1,6 @@
 import React, { useEffect, useState, type ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useSubscription } from './use-subscription';
+import { useSubscription, type SubscriptionState } from './use-subscription';
 import { styles } from './SubscriptionGateStyles';
 
 interface SubscriptionGateProps {
@@ -8,6 +8,7 @@ interface SubscriptionGateProps {
   userId: string | null;
   priceId: string;
   autoRedirect?: boolean;
+  subscription: SubscriptionState;
   children: ReactNode;
 }
 // Modal steps
@@ -18,9 +19,11 @@ export function SubscriptionGate({
   userId,
   priceId,
   autoRedirect = false,
+  subscription,
   children,
 }: SubscriptionGateProps) {
-  const sub = useSubscription(supabase, userId);
+  // const sub = useSubscription(supabase, userId);
+  const sub = subscription;
   
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -31,6 +34,16 @@ export function SubscriptionGate({
   const [otp, setOtp] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+
+  // Clean parameters out on mount so they don't break subsequent site navigation
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('fra_billing') || params.has('session_id')) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Forcefully call useSubscription built-in update hook to pull from the DB
+      if (typeof sub.refresh === 'function') void sub.refresh();
+    }
+  }, [sub]);
 
   // When userId updates from null -> active string, the user is fully authed.
   useEffect(() => {
@@ -45,7 +58,10 @@ export function SubscriptionGate({
   }, [userId, priceId, sub]);
 
   useEffect(() => {
-    if (!autoRedirect || !userId || sub.loading || sub.isActive) return;
+    const params = new URLSearchParams(window.location.search);
+    const isReturningFromAPI = params.has('fra_billing') || params.has('session_id');
+
+    if (!autoRedirect || !userId || sub.loading || sub.isActive || isReturningFromAPI) return;
     void sub.redirectToCheckout(priceId).catch((err) => {
       console.error('[SubscriptionGate] checkout redirect failed', err);
     });
