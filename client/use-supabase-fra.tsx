@@ -68,8 +68,9 @@ export function useSupabaseFra(supabase: SupabaseClient) {
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     if (!userId || !subscription.isActive) return;
+    const uniqueId = Math.random().toString(36).substring(2, 9);
     const channel: RealtimeChannel = supabase
-      .channel(`fra_state:${userId}`)
+      .channel(`fra_state:${userId}:${uniqueId}`)
       .on(
         'postgres_changes',
         {

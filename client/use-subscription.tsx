@@ -73,8 +73,9 @@ export function useSubscription(
   // Realtime: react to any change on this user's subscription row.
   useEffect(() => {
     if (!userId) return;
+    const uniqueId = Math.random().toString(36).substring(2, 9);
     const channel: RealtimeChannel = supabase
-      .channel(`subscriptions:${userId}`)
+      .channel(`subscriptions:${userId}:${uniqueId}`)
       .on(
         'postgres_changes',
         {
