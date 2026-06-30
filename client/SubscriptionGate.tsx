@@ -114,6 +114,22 @@ export function SubscriptionGate({
     }
   };
 
+  const handleLogout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthLoading(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw new Error(error.message);
+      }
+    } catch (err) {
+      setAuthError('[SubscriptionGate] Unexpected error during logout:', err);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const openModal = (mode: 'signin' | 'signup') => {
     setAuthMode(mode);
     setAuthError(null);
@@ -261,6 +277,7 @@ export function SubscriptionGate({
         <p style={{ marginBottom: 20, color: '#94a3b8', maxWidth: 420, lineHeight: 1.5 }}>
           Your account is active, but you do not have an active Deltametrician subscription.
         </p>
+        {sub.error && <p style={styles.errorText}>{sub.error}</p>}
         <button
           type="button"
           style={styles.primaryBtn}
@@ -268,7 +285,13 @@ export function SubscriptionGate({
         >
           Subscribe to Continue
         </button>
-        {sub.error && <p style={styles.errorText}>{sub.error}</p>}
+        <button 
+          disabled={authLoading}
+          style={styles.secondaryBtn}
+          onClick={handleLogout} 
+        >
+          {authLoading ? 'Logging out...' : 'Sign out'}
+        </button>
       </div>
     );
   }
