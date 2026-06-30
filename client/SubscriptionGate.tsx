@@ -10,6 +10,8 @@ interface SubscriptionGateProps {
   autoRedirect?: boolean;
   children: ReactNode;
 }
+// Modal steps
+type AuthStep = 'credentials' | 'otp_verify';
 
 export function SubscriptionGate({
   supabase,
@@ -22,11 +24,25 @@ export function SubscriptionGate({
   
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [authStep, setAuthStep] = useState<AuthStep>('credentials');
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+
+  // When userId updates from null -> active string, the user is fully authed.
+  useEffect(() => {
+    if (userId) { 
+      setIsAuthModalOpen(false); // Close the modal globally
+      setAuthStep('credentials'); // Reset step for future use
+      setOtp('');
+      
+      // OPTIONAL: If they just signed in/verified, automatically push them to checkout
+      // void sub.redirectToCheckout(priceId);
+    }
+  }, [userId, priceId, sub]);
 
   useEffect(() => {
     if (!autoRedirect || !userId || sub.loading || sub.isActive) return;
@@ -42,16 +58,57 @@ export function SubscriptionGate({
 
     try {
       if (authMode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        // CHECK: If MFA/TOTP is enforced, Supabase does not return a full session yet
+        if (!data.session) {
+          setAuthStep('otp_verify');
+          throw new Error(`Verification required. Please enter OTP sent to ${email} to continue.`);
+        }
         setIsAuthModalOpen(false);
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password, options: {
+            emailRedirectTo: window.location.origin, 
+          }
+        });
         if (error) throw error;
+        // CHECK: Email confirmation is enabled, so data.session will be null here
+        if (!data.session) {
+          // We throw a fresh error here to stop execution before redirectToCheckout is called
+          throw new Error(`Deltametrician created! Please check ${email} to verify your account and continue.`);
+        }
         void sub.redirectToCheckout(priceId);
       }
     } catch (err: any) {
       setAuthError(err.message || 'Authentication processing error.');
+      // setIsAuthModalOpen(false); // Or keep it open with a success message state
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleOtpVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        type: 'email' // 'totp' if using Supabase MFA app
+      });
+
+      if (error) throw error;
+
+      if (!data.session) {
+        throw new Error('Invalid or expired OTP code. Please try again.');
+      }
+      
+      // Note: We don't manually close the modal here. 
+      // The useEffect listening to sub.userId above handles it cleanly.
+    } catch (err: any) {
+      setAuthError(err.message || 'OTP verification failed.');
     } finally {
       setAuthLoading(false);
     }
@@ -70,37 +127,39 @@ export function SubscriptionGate({
     return (
       <div style={styles.landingContainer}>
         <header style={styles.header}>
-          <div style={styles.logo}>Fundrates Arb</div>
+          <div style={styles.logo}>Deltametrician</div>
           <button type="button" style={styles.navLink} onClick={() => openModal('signin')}>
             Sign In
           </button>
         </header>
 
         <main style={styles.heroSection}>
-          <h1 style={styles.title}>Automated Funding Rate Arbitrage</h1>
+          <h1 style={styles.title}>Cryptocurrency Portfolio Dashboard</h1>
           <p style={styles.subtitle}>
             Maximize yields by capturing market inefficiencies across centralized and decentralized perpetual exchanges. 
-            Our automated execution engine tracks, balances, and locks delta-neutral premiums 24/7 with zero manual overhead.
+            Our automated execution engine tracks, balances, and sweeps yield premiums 24/7 with zero manual overhead.
+            Simply transfer your assets to Hyperliquid (DEX) or OKX (CEX), and go live whenever paper trading gets boring.
+            You only need your API keys with 'create-order' and 'transfer' permissions - No withdraw permissions needed.
           </p>
           
           <div style={styles.ctaGroup}>
             <button type="button" style={styles.primaryBtn} onClick={() => openModal('signup')}>
-              Get Started (Subscribe)
+              Get Started
             </button>
             <button type="button" style={styles.secondaryBtn} onClick={() => openModal('signin')}>
-              Access Workspace
+              Enter Dashboard
             </button>
           </div>
         </main>
 
         <section style={styles.featureSection}>
           <div style={styles.featureCard}>
-            <h3 style={styles.cardTitle}>Delta-Neutral Execution</h3>
-            <p style={styles.cardBody}>Simultaneously balance spot and perpetual positions to extract funding payouts without exposing capital to asset price direction fluctuations.</p>
+            <h3 style={styles.cardTitle}>Conservative Execution</h3>
+            <p style={styles.cardBody}>Automatically balance positions and sweep yields without exposing capital to asset price direction fluctuations.</p>
           </div>
           <div style={styles.featureCard}>
-            <h3 style={styles.cardTitle}>Realtime Persistence</h3>
-            <p style={styles.cardBody}>Connected directly to Supabase clusters for persistent multi-account state tracking, engine revision history logging, and live balance monitoring.</p>
+            <h3 style={styles.cardTitle}>Realtime Analysis</h3>
+            <p style={styles.cardBody}>Exchange's klines API is persisted to Supabase clusters for weekly analysis, engine revision history logging, and live balance monitoring.</p>
           </div>
           <div style={styles.featureCard}>
             <h3 style={styles.cardTitle}>Stripe Payment Resilience</h3>
@@ -112,7 +171,7 @@ export function SubscriptionGate({
           <div style={styles.modalOverlay} onClick={() => setIsAuthModalOpen(false)}>
             <div style={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
               <h2 style={styles.modalTitle}>
-                {authMode === 'signin' ? 'Welcome Back' : 'Create Your Account'}
+                {authStep === 'credentials' ? (authMode === 'signin' ? 'Welcome Back' : 'Create Deltametrician') : 'Verify OTP'}
               </h2>
               <p style={styles.modalSubtitle}>
                 {authMode === 'signin' 
@@ -120,30 +179,61 @@ export function SubscriptionGate({
                   : 'Register now to proceed securely to Stripe subscription checkout.'}
               </p>
 
-              <form onSubmit={handleAuthAction} style={styles.form}>
-                <input
-                  type="email"
-                  placeholder="Email address"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={styles.input}
-                />
-                <input
-                  type="password"
-                  placeholder="Password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  style={styles.input}
-                />
-                
-                {authError && <p style={styles.errorText}>{authError}</p>}
+              {authStep === 'credentials' ? (
+                <form onSubmit={handleAuthAction} style={styles.form}>
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    style={styles.input}
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    style={styles.input}
+                  />
 
-                <button type="submit" disabled={authLoading} style={styles.submitBtn}>
-                  {authLoading ? 'Processing…' : authMode === 'signin' ? 'Sign In' : 'Sign Up & Subscribe'}
-                </button>
-              </form>
+                  <button type="submit" disabled={authLoading} style={styles.submitBtn}>
+                    {authLoading ? 'Processing…' : authMode === 'signin' ? 'Sign In' : 'Sign Up & Subscribe'}
+                  </button>
+                  
+                  <button type="button" onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')} style={styles.toggleBtn}>
+                    {authMode === 'signin' ? 'Need Deltametrician? Sign Up' : 'Already got an account? Sign In'}
+                  </button>
+                </form>
+              ) : (
+                /* STEP 2: OTP CODE FORM */
+                <form onSubmit={handleOtpVerify} style={styles.form}>
+                  <p style={styles.modalSubtitle}>Enter verification code sent to <strong>{email}</strong>.</p>
+                  <input
+                    type="text"
+                    placeholder="Enter 6-digit OTP code"
+                    required
+                    maxLength={6}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    style={styles.input}
+                  />
+                  <button type="submit" disabled={authLoading} style={styles.submitBtn}>
+                    {authLoading ? 'Verifying…' : 'Confirm Code'}
+                  </button>
+                  
+                  <button 
+                    type="button" 
+                    onClick={() => { setAuthStep('credentials'); setAuthError(null); }} 
+                    style={styles.toggleBtn}
+                  >
+                    ← Back
+                  </button>
+                </form>
+              )}
+                
+              {authError && <p style={styles.errorText}>{authError}</p>}
 
               <div style={styles.toggleModeBlock}>
                 {authMode === 'signin' ? (
@@ -173,7 +263,7 @@ export function SubscriptionGate({
       <div style={styles.center}>
         <h2 style={{ marginBottom: 8, color: '#f8fafc' }}>Subscription Required</h2>
         <p style={{ marginBottom: 20, color: '#94a3b8', maxWidth: 420, lineHeight: 1.5 }}>
-          Your account is active, but you do not have an active Funding Rate Arbitrage subscription profile.
+          Your account is active, but you do not have an active Deltametrician subscription.
         </p>
         <button
           type="button"
@@ -365,6 +455,14 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: 15,
     marginTop: 8,
+  },
+  toggleBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#0070f3',
+    cursor: 'pointer',
+    marginTop: '0.5rem',
+    textAlign: 'center' as const
   },
   toggleModeBlock: {
     marginTop: 20,

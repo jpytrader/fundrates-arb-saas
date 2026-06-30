@@ -21,11 +21,30 @@ export function useSupabaseFra(supabase: SupabaseClient) {
   // Track auth session
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (active) setUserId(data.session?.user.id ?? null);
+    supabase.auth.getSession().then(({ data, _err }) => {
+      if (!active) return;
+      if (_err) {
+        // Throw a new Error out of the promise instead of setting local component state
+        throw new Error(`Session initialization failed: ${_err.message}`);
+      }
+
+      const currentId = data.session?.user.id ?? null;
+      setUserId(currentId);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      setUserId(session?.user.id ?? null);
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, session) => {
+      if (!active) return;
+
+      const userId = session?.user.id ?? null;
+      setUserId(userId);
+
+      // "SIGNED_IN" triggers automatically when the email link hash fragment is decoded on mount
+      if (_evt === 'SIGNED_IN' && session) {
+        console.log("Authentication sync successful for user:", userId);
+      }
+      
+      if (_evt === 'SIGNED_OUT') {
+        setUserId(null);
+      }
     });
     return () => {
       active = false;
