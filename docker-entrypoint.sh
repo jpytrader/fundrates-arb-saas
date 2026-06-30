@@ -36,7 +36,7 @@ else
     STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET"
 
   echo "Deploying engine components - billing schemas, payment gateways, and serverless functions..."
-  bun run deploy:functions -- --no-verify-jwt
+  bun run deploy:functions -- --no-verify-jwt 2>&1 | grep -v "WARN: failed to read file"
   bunx supabase functions deploy create-checkout --no-verify-jwt
   bunx supabase functions deploy create-portal-session --no-verify-jwt
   bunx supabase functions deploy stripe-webhook-fra
