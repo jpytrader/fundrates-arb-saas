@@ -36,13 +36,33 @@ else
     STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET"
 
   echo "Deploying engine components - billing schemas, payment gateways, and serverless functions..."
-  bun run deploy:functions -- --no-verify-jwt 2>&1 | grep -v "WARN: failed to read file"
-  bunx supabase functions deploy create-checkout --no-verify-jwt
-  bunx supabase functions deploy create-portal-session --no-verify-jwt
-  bunx supabase functions deploy stripe-webhook-fra
-  bunx supabase functions deploy reconcile-subscriptions
-  bunx supabase functions deploy revoke-exchange-key
-  bunx supabase functions deploy rotate-exchange-key
+  EXISTING_FUNCTIONS=$(curl -s -X GET "https://supabase.com{PROJECT_REF}/functions" \
+    -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}") \
+  FUNCTIONS=( \
+    "fra-engine" \
+    "create-checkout" \
+    "create-portal-session" \
+    "stripe-webhook-fra" \
+    "reconcile-subscriptions" \
+    "revoke-exchange-key" \
+    "rotate-exchange-key" \
+  ) \
+  for i in "${!FUNCTIONS[@]}"; do \
+    FUNC_NAME="${FUNCTIONS[$i]}"; \
+    if echo "$EXISTING_FUNCTIONS" | grep -q "\"slug\": \"${FUNC_NAME}\""; then \
+      echo "⏭️ Skipping: '${FUNC_NAME}' already exists."; \
+    else \
+      echo "🚀 Deploying missing function: '${FUNC_NAME}'"; \
+      case "${FUNC_NAME}" in \
+        "fra-engine") \
+          bun run deploy:functions -- -no-verify-jwt  2>&1 | grep -v "WARN: failed to read file" ;; \
+        "create-checkout"|"create-portal-session") \
+          supabase functions deploy "${FUNC_NAME}" --no-verify-jwt ;; \
+        *) \
+          supabase functions deploy "${FUNC_NAME}" ;; \
+      esac; \
+    fi; \
+  done
   echo "Database provisioning matrix established."
 
   echo "Scheduling persistent database background CRON automation..."
