@@ -201,10 +201,6 @@ export function SubscriptionGate({
                   <button type="submit" disabled={authLoading} style={styles.submitBtn}>
                     {authLoading ? 'Processing…' : authMode === 'signin' ? 'Sign In' : 'Sign Up & Subscribe'}
                   </button>
-                  
-                  <button type="button" onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')} style={styles.toggleBtn}>
-                    {authMode === 'signin' ? 'Need Deltametrician? Sign Up' : 'Already got an account? Sign In'}
-                  </button>
                 </form>
               ) : (
                 /* STEP 2: OTP CODE FORM */

@@ -79,8 +79,14 @@ export function useSupabaseFra(supabase: SupabaseClient) {
           filter: `user_id=eq.${userId}`,
         },
         () => setRevision((r) => r + 1),
-      )
-      .subscribe();
+      );
+
+    void channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log(`Subscription channel (fra_state:${userId}) ready`);
+      }
+    });
+    
     return () => {
       void supabase.removeChannel(channel);
     };

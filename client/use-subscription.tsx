@@ -86,8 +86,14 @@ export function useSubscription(
         () => {
           void fetchStatus();
         },
-      )
-      .subscribe();
+      );
+
+    void channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log(`Subscription channel (subscription:${userId}) ready`);
+      }
+    });
+
     return () => {
       void supabase.removeChannel(channel);
     };
