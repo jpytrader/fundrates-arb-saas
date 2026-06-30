@@ -119,7 +119,7 @@ export function SubscriptionGate({
     setAuthError(null);
     setAuthLoading(true);
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({ scope: 'global' }); // default: local (current tab/device)
       if (error) {
         throw new Error(error.message);
       }
@@ -191,8 +191,8 @@ export function SubscriptionGate({
               </h2>
               <p style={styles.modalSubtitle}>
                 {authMode === 'signin' 
-                  ? 'Enter your credentials to access the arbitrage dashboard.' 
-                  : 'Register now to proceed securely to Stripe subscription checkout.'}
+                  ? 'Enter your credentials to access the Metrics dashboard.' 
+                  : 'Create your Deltametrician securely with Stripe.'}
               </p>
 
               {authStep === 'credentials' ? (

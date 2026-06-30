@@ -21,16 +21,36 @@ export function useSupabaseFra(supabase: SupabaseClient) {
   // Track auth session
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data, _err }) => {
-      if (!active) return;
-      if (_err) {
-        // Throw a new Error out of the promise instead of setting local component state
-        throw new Error(`Session initialization failed: ${_err.message}`);
-      }
+    
+    // Force an immediate server validation if a billing redirect is detected
+    const params = new URLSearchParams(window.location.search);
+    const isReturningFromBilling = params.has('fra_billing') || params.has('session_id');
+    
 
-      const currentId = data.session?.user.id ?? null;
-      setUserId(currentId);
-    });
+    if (isReturningFromBilling) {
+      // Re-validate directly against Supabase Auth servers instead of trusting LocalStorage cache
+      supabase.auth.refreshSession().then(({ data, error }) => {
+        if (!active) return;
+        if (!error && data.session) {
+          setUserId(data.session.user.id);
+          // Clean the query parameters cleanly so normal navigation handles future refreshes
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      });
+    } else {
+      // Standard baseline cache read
+      supabase.auth.getSession().then(({ data, _err }) => {
+        if (!active) return;
+        if (_err) {
+          // Throw a new Error out of the promise instead of setting local component state
+          throw new Error(`Session initialization failed: ${_err.message}`);
+        }
+
+        const currentId = data.session?.user.id ?? null;
+        setUserId(currentId);
+      });
+    }
+
     const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, session) => {
       if (!active) return;
 
@@ -39,13 +59,14 @@ export function useSupabaseFra(supabase: SupabaseClient) {
 
       // "SIGNED_IN" triggers automatically when the email link hash fragment is decoded on mount
       if (_evt === 'SIGNED_IN' && session) {
-        console.log("Authentication sync successful for user:", userId);
+        console.log("[Deltametrician] Authentication sync successful for user:", userId);
       }
       
       if (_evt === 'SIGNED_OUT') {
         setUserId(null);
       }
     });
+
     return () => {
       active = false;
       sub.subscription.unsubscribe();
@@ -68,6 +89,7 @@ export function useSupabaseFra(supabase: SupabaseClient) {
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     if (!userId || !subscription.isActive) return;
+    
     const uniqueId = Math.random().toString(36).substring(2, 9);
     const channel: RealtimeChannel = supabase
       .channel(`fra_state:${userId}:${uniqueId}`)
