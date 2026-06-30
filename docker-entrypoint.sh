@@ -35,28 +35,67 @@ else
     STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" \
     STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET"
 
-  echo "Deploying engine components - billing schemas, payment gateways, and serverless functions..."
-  EXISTING_FUNCTIONS=$(curl -s -X GET "https://supabase.com{REF}/functions" \
-    -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}")
+  echo "Deploying engine components - billing schemas, gateway targets, and serverless functions..."
 
-  # Define functions as a standard space-separated string list
-  FUNCTIONS="fra-engine create-checkout create-portal-session stripe-webhook-fra reconcile-subscriptions revoke-exchange-key rotate-exchange-key"
+  # 1. Pull deployed function list directly using the native CLI (bypasses curl string formatting)
+  # The '-o json' flag allows safe programmatic parsing natively in Bash without jq
+  DEPLOYED_RAW=$(bunx supabase functions list -o json 2>/dev/null || echo "[]")
 
-  for FUNC_NAME in $FUNCTIONS; do
-    if echo "$EXISTING_FUNCTIONS" | grep -q "\"slug\": \"${FUNC_NAME}\""; then
-      echo "⏭️ Skipping: '${FUNC_NAME}' already exists."
-    else
-      echo "🚀 Deploying missing function: '${FUNC_NAME}'"
-      case "${FUNC_NAME}" in
+  # 2. Map all your functions into a clean Bash associative array tracking system
+  declare -A TARGET_FUNCTIONS=(
+    ["fra-engine"]=1
+    ["create-checkout"]=1
+    ["create-portal-session"]=1
+    ["stripe-webhook-fra"]=1
+    ["reconcile-subscriptions"]=1
+    ["revoke-exchange-key"]=1
+    ["rotate-exchange-key"]=1
+  )
+
+  # 3. Cleanly parse slugs using standard Bash string manipulation instead of 'jq'
+  while read -r slug; do
+    unset "TARGET_FUNCTIONS[$slug]"
+  done < <(echo "$DEPLOYED_RAW" | grep -o '"slug": "[^"]*' | grep -o '[^"]*$')
+
+  # Collect whatever keys remain in our array (these are the true missing functions)
+  MISSING_FUNCTIONS=("${!TARGET_FUNCTIONS[@]}")
+
+  if [ ${#MISSING_FUNCTIONS[@]} -eq 0 ]; then
+    echo "✅ All required edge functions are already present on the project stack."
+  else
+    echo "🚀 Discovered missing functions needing deployment: ${MISSING_FUNCTIONS[*]}"
+    
+    # Group regular commands cleanly to deploy in single bulk operations
+    BULK_STANDARD=()
+    BULK_NO_JWT=()
+
+    for FUNC in "${MISSING_FUNCTIONS[@]}"; do
+      case "$FUNC" in
         "fra-engine")
-          bun run deploy:functions -- -no-verify-jwt 2>&1 | grep -v "WARN: failed to read file" ;;
+          # Custom deployment pipeline script
+          bun run deploy:functions -- -no-verify-jwt 2>&1 | grep -v "WARN: failed to read file" || true
+          ;;
         "create-checkout"|"create-portal-session")
-          bunx supabase functions deploy "${FUNC_NAME}" --no-verify-jwt ;;
+          BULK_NO_JWT+=("$FUNC")
+          ;;
         *)
-          bunx supabase functions deploy "${FUNC_NAME}" ;;
+          BULK_STANDARD+=("$FUNC")
+          ;;
       esac
+    done
+
+    # 4. Trigger massive speed optimizations by executing bulk operations instead of loops
+    if [ ${#BULK_NO_JWT[@]} -gt 0 ]; then
+      echo "⚡ Bulk deploying non-JWT functions: ${BULK_NO_JWT[*]}"
+      bunx supabase functions deploy "${BULK_NO_JWT[@]}" --no-verify-jwt
     fi
-  done
+
+    if [ ${#BULK_STANDARD[@]} -gt 0 ]; then
+      echo "⚡ Bulk deploying standard functions: ${BULK_STANDARD[*]}"
+      bunx supabase functions deploy "${BULK_STANDARD[@]}"
+    fi
+  fi
+
   echo "Database provisioning matrix established."
 
   echo "Scheduling persistent database background CRON automation..."
