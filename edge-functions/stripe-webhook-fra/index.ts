@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    log.error('handler_failed', { event_id: event.id, error: errMsg });
+    log.error(`handler_failed (${event.type})`, { event_id: event.id, error: errMsg });
     // Park in DLQ — reconcile-subscriptions will retry.
     await admin.from('fra_webhook_dlq').upsert(
       {
@@ -108,6 +108,12 @@ async function handleEvent(
         (numericTimestamp && !isNaN(numericTimestamp)) ? new Date(numericTimestamp * 1000).toISOString() :
          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
       ;
+
+      log.warn(`${JSON.stringify({
+        periodEnd: periodEndTimestamp,
+        numericTmp: numericTimestamp,
+        periodEndISO: isoPeriodEnd
+      }, null, 2)}`);
 
       // Execute your clean primary user subscription access upsert into public schema
       const { error: upsertError } = await admin.from('subscriptions').upsert(
