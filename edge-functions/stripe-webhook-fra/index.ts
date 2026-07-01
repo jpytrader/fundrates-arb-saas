@@ -91,7 +91,7 @@ async function handleEvent(
       if (!targetUserId) {
         // Fall back to your legacy profile mapping check only if metadata tokens are missing
         const { data: profile } = await admin
-          .from('profiles')
+          .from('customers')
           .select('id')
           .eq('stripe_customer_id', customerId)
           .maybeSingle();
@@ -102,12 +102,6 @@ async function handleEvent(
       }
 
       const userIdToAssign = targetUserId || profile.id;
-
-      // Ensure your profiles table maps the newly minted customer ID for future portal sessions
-      await admin
-        .from('profiles')
-        .update({ stripe_customer_id: customerId })
-        .eq('id', userIdToAssign);
 
       const periodEndTimestamp = sub.current_period_end;
       const isoPeriodEnd = (periodEndTimestamp && typeof periodEndTimestamp === 'number')
