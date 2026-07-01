@@ -73,9 +73,9 @@ else
       echo "Processing configuration parameters for destination node: ${FUNC}"
 
       # 🌟 DYNAMIC CHECK: Append the configuration block if it doesn't already exist
-      if ! grep -q "\[functions.${FUNC_NAME}\]" supabase/config.toml; then
+      if ! grep -q "\[functions.${FUNC}\]" supabase/config.toml; then
         echo "" >> supabase/config.toml
-        echo "[functions.${FUNC_NAME}]" >> supabase/config.toml
+        echo "[functions.${FUNC}]" >> supabase/config.toml
         echo "verify_jwt = false" >> supabase/config.toml
       fi
       case "$FUNC" in
@@ -105,8 +105,9 @@ else
   fi
 
   echo "Database provisioning matrix established."
-
+  
   echo "Scheduling persistent database background CRON automation..."
+
   CRON_1_EXISTS=$(bunx supabase db query --linked "SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fra-engine-tick');" | grep -q "true" && echo "true" || echo "false")
   echo "Checking and scheduling persistent database background CRON automation..."
   if [ "$CRON_1_EXISTS" = "false" ]; then
