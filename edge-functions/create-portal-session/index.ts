@@ -30,6 +30,11 @@ serve(async (req) => {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      {
+        db: {
+          schema: ['public','stripe'] // authorizes the client to execute queries outside 'public' schema
+        }
+      }
     );
 
     const authHeader = req.headers.get('Authorization');
@@ -39,6 +44,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
