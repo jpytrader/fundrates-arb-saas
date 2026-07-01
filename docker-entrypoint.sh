@@ -82,7 +82,7 @@ else
       # 🌟 ELEGANT FALLBACK: Automatically inject specific secret routing maps per function
       if [ "${FUNC}" == "stripe-webhook-fra" ] && [ -n "${STRIPE_WEBHOOK_SECRET_FRA}" ]; then
         echo "Syncing localized fallback cryptographic secret tokens up to Cloud node..."
-        supabase secrets set STRIPE_WEBHOOK_SECRET_FRA="${STRIPE_WEBHOOK_SECRET_FRA}"
+        bunx supabase secrets set STRIPE_WEBHOOK_SECRET_FRA="${STRIPE_WEBHOOK_SECRET_FRA}"
       fi
 
       case "$FUNC" in
