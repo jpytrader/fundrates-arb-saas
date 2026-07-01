@@ -102,11 +102,12 @@ async function handleEvent(
       }
 
       // Safe date calculations from the previous 'Invalid time value' bug
-      const periodEndTimestamp = sub.current_period_end;
+      const periodEndTimestamp = sub.items?.data?.[0]?.current_period_end;
       const numericTimestamp = periodEndTimestamp ? Number(periodEndTimestamp) : null;
-      const isoPeriodEnd = (numericTimestamp && !isNaN(numericTimestamp))
-        ? new Date(numericTimestamp * 1000).toISOString()
-        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const isoPeriodEnd = event.type === 'customer.subscription.deleted' ? new Date().toISOString() :
+        (numericTimestamp && !isNaN(numericTimestamp)) ? new Date(numericTimestamp * 1000).toISOString() :
+         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      ;
 
       // Execute your clean primary user subscription access upsert into public schema
       const { error: upsertError } = await admin.from('subscriptions').upsert(
