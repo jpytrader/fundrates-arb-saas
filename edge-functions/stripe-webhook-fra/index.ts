@@ -107,17 +107,19 @@ async function handleEvent(
       const isoPeriodEnd = event.type === 'customer.subscription.deleted' ? new Date().toISOString() :
         (numericTimestamp && !isNaN(numericTimestamp)) ? new Date(numericTimestamp * 1000).toISOString() :
          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      ;
+         
+      // Extract the price ID matching the schema requirements
+      const priceIdToAssign = sub.items?.data?.[0]?.price?.id || null;
 
       // Execute your clean primary user subscription access upsert into public schema
       const { error: upsertError } = await admin.from('subscriptions').upsert(
         {
-          user_id: userIdToAssign,
-          stripe_customer_id: customerId,
-          stripe_subscription_id: sub.id,
-          status: sub.status,
-          current_period_end: isoPeriodEnd,
-          updated_at: new Date().toISOString(),
+          id: sub.id,                      // Mapped directly to Stripe Sub ID (Primary Key)
+          user_id: userIdToAssign,         // Mapped to the validated auth.users foreign key
+          status: sub.status,              // Status verified against database CHECK constraints
+          price_id: priceIdToAssign,       // Extracted from nested items array for structural parity
+          current_period_end: isoPeriodEnd,// ISO-parsed safe timestamp
+          // Removed manual updated_at to prevent fighting trg_subscriptions_touch database logic
         },
         { onConflict: 'id' },
       );
