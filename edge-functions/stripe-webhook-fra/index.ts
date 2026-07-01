@@ -109,6 +109,11 @@ async function handleEvent(
         .update({ stripe_customer_id: customerId })
         .eq('id', userIdToAssign);
 
+      const periodEndTimestamp = sub.current_period_end;
+      const isoPeriodEnd = (periodEndTimestamp && typeof periodEndTimestamp === 'number')
+        ? new Date(periodEndTimestamp * 1000).toISOString()
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // Default to 30 days out if null
+
       // Execute your clean primary user subscription access upsert
       await admin.from('subscriptions').upsert(
         {
@@ -116,7 +121,7 @@ async function handleEvent(
           stripe_customer_id: customerId,
           stripe_subscription_id: sub.id,
           status: sub.status,
-          current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+          current_period_end: isoPeriodEnd,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id' },
