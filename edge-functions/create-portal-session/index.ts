@@ -27,24 +27,21 @@ serve(async (req) => {
   }
 
   try {
+    // Default initialization targeting the public schema exclusively
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      {
-        db: {
-          schema: ['public','stripe'] // authorizes the client to execute queries outside 'public' schema
-        }
-      }
     );
 
     const authHeader = req.headers.get('Authorization');
+
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
@@ -54,14 +51,12 @@ serve(async (req) => {
       });
     }
 
-    // 🌟 FIX: Select the 'customer' column (cus_...) instead of the sub ID 'id' (sub_...).
-    // Filter against the JSONB metadata field where the Sync Engine places the user token identifier.
-    const { data: customerRow, error: customerErr } = await supabase
-      .schema('stripe')
+    // 🌟 Query your clean, indexed public table directly
+    const { data: subscriptionRow, error: customerErr } = await supabase
       .from('subscriptions')
-      .select('customer')
-      .eq('metadata->>supabase_user_id', user.id)
-      .order('created_at', { ascending: false }) // FIX: use 'created_at' matching the PostgreSQL column syntax
+      .select('id') // This is the Stripe Subscription ID (sub_...)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -73,17 +68,21 @@ serve(async (req) => {
       });
     }
 
-    // Extracted variable points natively to the matching customer property token
-    const customerId = customerRow?.customer;
-    if (!customerId) {
+    if (!subscriptionRow?.id) {
       return new Response(
-        JSON.stringify({ error: 'No Stripe customer found for this user' }),
+        JSON.stringify({ error: 'No active subscription found for this user' }),
         {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       );
     }
+
+    // 🌟 Fetch the true customer ID directly from the source via Stripe SDK
+    const stripeSub = await stripe.subscriptions.retrieve(subscriptionRow.id);
+    const customerId = typeof stripeSub.customer === 'string' 
+      ? stripeSub.customer 
+      : stripeSub.customer.id;
 
     const origin = req.headers.get('origin') ?? '';
     const portal = await stripe.billingPortal.sessions.create({
