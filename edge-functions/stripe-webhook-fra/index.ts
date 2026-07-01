@@ -102,12 +102,12 @@ async function handleEvent(
       }
 
       // Safe date calculations from the previous 'Invalid time value' bug
-      /**
+      
       const periodEndTimestamp = sub.current_period_end;
       const isoPeriodEnd = (periodEndTimestamp && typeof periodEndTimestamp === 'number')
         ? new Date(periodEndTimestamp * 1000).toISOString()
         : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      */
+
       // Execute your clean primary user subscription access upsert into public schema
       const { error: upsertError } = await admin.from('subscriptions').upsert(
         {
