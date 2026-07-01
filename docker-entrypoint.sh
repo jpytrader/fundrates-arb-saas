@@ -70,14 +70,14 @@ else
     BULK_NO_JWT=()
 
     for FUNC in "${MISSING_FUNCTIONS[@]}"; do
-      echo "Processing configuration parameters for destination node: ${FUNC_NAME}"
+      echo "Processing configuration parameters for destination node: ${FUNC}"
 
       # 🌟 DYNAMIC CHECK: Append the configuration block if it doesn't already exist
-      grep -q "\[functions.${FUNC_NAME}\]" supabase/config.toml || cat << INNER_EOF >> supabase/config.toml
-
-    [functions.${FUNC_NAME}]
-    verify_jwt = false
-    INNER_EOF
+      if ! grep -q "\[functions.${FUNC_NAME}\]" supabase/config.toml; then
+        echo "" >> supabase/config.toml
+        echo "[functions.${FUNC_NAME}]" >> supabase/config.toml
+        echo "verify_jwt = false" >> supabase/config.toml
+      fi
       case "$FUNC" in
         "fra-engine")
           # Custom deployment pipeline script
