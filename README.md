@@ -61,7 +61,7 @@ supabase-saas/
 ```
 
 > A condensed, single-page deploy walk-through aimed at first-time users lives in
-> [`../funding-rate-arb/E2E_BILLING.md`](../funding-rate-arb/E2E_BILLING.md).
+> [`../funding-rate-arb/E2E_BILLING.md`](../fundrates-arb/E2E_BILLING.md).
 
 ## Quick start
 
@@ -91,6 +91,6 @@ in [`docs/BILLING.md`](./docs/BILLING.md).
 
 ## Design constraint
 
-The `funding-rate-arb` package remains project-agnostic. **All Supabase-specific
+The `fundrates-arb` package remains project-agnostic. **All Supabase-specific
 code lives in this folder.** The store adapter implements the public `StateStore`
 interface exported from the component; no internal APIs are touched.
