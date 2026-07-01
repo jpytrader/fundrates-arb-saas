@@ -64,14 +64,13 @@ Deno.serve(async (req) => {
       },
       { onConflict: 'event_id' },
     );
-    // Return 200 so Stripe doesn't keep retrying — DLQ owns the retry now.
+    // Return 210 so Stripe doesn't keep retrying — DLQ owns the retry now.
     return new Response(JSON.stringify({ ok: false, parked: true }), {
-      status: 200,
+      status: 210,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
-
 async function handleEvent(
   admin: ReturnType<typeof createClient>,
   event: Stripe.Event,
@@ -83,38 +82,33 @@ async function handleEvent(
       const sub = event.data.object as Stripe.Subscription;
       const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
       
-      // 🌟 PRODUCTION CORRECTION: 
-      // Extract the Supabase Auth User UUID sent during your checkout creation 
-      // via client_reference_id or the subscription metadata mapping tags
+      // Extract the Supabase Auth User UUID sent during checkout metadata
       const targetUserId = sub.metadata?.supabase_user_id || sub.metadata?.user_id;
+      let userIdToAssign = targetUserId;
 
-      if (!targetUserId) {
-        // Fall back to your legacy profile mapping check only if metadata tokens are missing
-        const { data: profile } = await admin
+      // 🌟 FIX: If metadata is missing, safely pull the correct 'user_id' column from customers
+      if (!userIdToAssign) {
+        const { data: customerRow } = await admin
           .from('customers')
-          .select('id')
+          .select('user_id') // Select 'user_id' natively mapping to auth.users
           .eq('stripe_customer_id', customerId)
           .maybeSingle();
           
-        if (!profile) {
+        if (!customerRow?.user_id) {
           throw new Error(`Critical: Event missing metadata tracking tokens and unknown stripe_customer_id: ${customerId}`);
         }
+        
+        userIdToAssign = customerRow.user_id;
       }
 
-      const userIdToAssign = targetUserId || profile.id;
-
+      // Safe date calculations from the previous 'Invalid time value' bug
       const periodEndTimestamp = sub.current_period_end;
       const isoPeriodEnd = (periodEndTimestamp && typeof periodEndTimestamp === 'number')
         ? new Date(periodEndTimestamp * 1000).toISOString()
-        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // Default to 30 days out if null
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      const periodEndTimestamp = sub.current_period_end;
-      const isoPeriodEnd = (periodEndTimestamp && typeof periodEndTimestamp === 'number')
-        ? new Date(periodEndTimestamp * 1000).toISOString()
-        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // Default to 30 days out if null
-
-      // Execute your clean primary user subscription access upsert
-      await admin.from('subscriptions').upsert(
+      // Execute your clean primary user subscription access upsert into public schema
+      const { error: upsertError } = await admin.from('subscriptions').upsert(
         {
           user_id: userIdToAssign,
           stripe_customer_id: customerId,
@@ -125,9 +119,12 @@ async function handleEvent(
         },
         { onConflict: 'user_id' },
       );
+
+      if (upsertError) throw upsertError;
       return;
     }
     default:
       return;
   }
 }
+
