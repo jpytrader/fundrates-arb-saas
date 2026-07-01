@@ -13,8 +13,8 @@ import Stripe from 'npm:stripe@14.25.0';
 import { createLogger } from '../_shared/logger.ts';
 
 const log = createLogger('stripe-webhook-fra');
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, { apiVersion: '2024-04-10' });
-const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!);
+const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET_FRA')!;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
