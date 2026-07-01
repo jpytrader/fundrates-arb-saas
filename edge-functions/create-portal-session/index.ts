@@ -48,15 +48,14 @@ serve(async (req) => {
       });
     }
 
-    // Find the user's Stripe customer via the latest subscription row.
-    // The Stripe Sync Engine populates stripe.customers; we look it up via
-    // the most recent stripe.subscriptions row owned by this user.
+    // 🌟 FIX: Select the 'customer' column (cus_...) instead of the sub ID 'id' (sub_...).
+    // Filter against the JSONB metadata field where the Sync Engine places the user token identifier.
     const { data: customerRow, error: customerErr } = await supabase
       .schema('stripe')
       .from('subscriptions')
-      .select('id')
-      .eq('user_id', user.id)
-      .order('created', { ascending: false })
+      .select('customer')
+      .eq('metadata->>supabase_user_id', user.id)
+      .order('created_at', { ascending: false }) // FIX: use 'created_at' matching the PostgreSQL column syntax
       .limit(1)
       .maybeSingle();
 
@@ -68,7 +67,8 @@ serve(async (req) => {
       });
     }
 
-    const customerId = customerRow?.id;
+    // Extracted variable points natively to the matching customer property token
+    const customerId = customerRow?.customer;
     if (!customerId) {
       return new Response(
         JSON.stringify({ error: 'No Stripe customer found for this user' }),
