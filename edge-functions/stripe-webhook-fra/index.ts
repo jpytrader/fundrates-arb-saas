@@ -82,19 +82,37 @@ async function handleEvent(
     case 'customer.subscription.deleted': {
       const sub = event.data.object as Stripe.Subscription;
       const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
-      // Look up user_id by stripe_customer_id on profiles.
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('id')
-        .eq('stripe_customer_id', customerId)
-        .maybeSingle();
-      if (!profile) {
-        // Unknown customer — DLQ it for reconcile to handle once profile catches up.
-        throw new Error(`unknown stripe_customer_id: ${customerId}`);
+      
+      // 🌟 PRODUCTION CORRECTION: 
+      // Extract the Supabase Auth User UUID sent during your checkout creation 
+      // via client_reference_id or the subscription metadata mapping tags
+      const targetUserId = sub.metadata?.supabase_user_id || sub.metadata?.user_id;
+
+      if (!targetUserId) {
+        // Fall back to your legacy profile mapping check only if metadata tokens are missing
+        const { data: profile } = await admin
+          .from('profiles')
+          .select('id')
+          .eq('stripe_customer_id', customerId)
+          .maybeSingle();
+          
+        if (!profile) {
+          throw new Error(`Critical: Event missing metadata tracking tokens and unknown stripe_customer_id: ${customerId}`);
+        }
       }
+
+      const userIdToAssign = targetUserId || profile.id;
+
+      // Ensure your profiles table maps the newly minted customer ID for future portal sessions
+      await admin
+        .from('profiles')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', userIdToAssign);
+
+      // Execute your clean primary user subscription access upsert
       await admin.from('subscriptions').upsert(
         {
-          user_id: profile.id,
+          user_id: userIdToAssign,
           stripe_customer_id: customerId,
           stripe_subscription_id: sub.id,
           status: sub.status,
@@ -106,7 +124,6 @@ async function handleEvent(
       return;
     }
     default:
-      // Ignore — only subscription lifecycle events drive Layer 7 gating.
       return;
   }
 }
