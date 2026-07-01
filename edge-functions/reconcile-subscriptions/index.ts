@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
   const reconResult = await reconcile(admin);
 
   log.info('done', { ...dlqResult, ...reconResult });
+
   return new Response(JSON.stringify({ ok: true, ...dlqResult, ...reconResult }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
@@ -46,12 +47,15 @@ async function drainDlq(admin: ReturnType<typeof createClient>) {
     .lte('next_attempt_at', new Date().toISOString())
     .lt('retry_count', MAX_RETRIES)
     .limit(50);
+
   if (error) {
     log.error('dlq_query_failed', { error: error.message });
     return { dlq_drained: 0, dlq_failed: 0 };
   }
+
   let drained = 0;
   let failed = 0;
+
   for (const row of rows ?? []) {
     try {
       const event = row.payload as unknown as Stripe.Event;
@@ -84,49 +88,110 @@ async function replayEvent(
     event.type !== 'customer.subscription.updated' &&
     event.type !== 'customer.subscription.deleted'
   ) return;
+
   const sub = event.data.object as Stripe.Subscription;
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
-  const { data: profile } = await admin
-    .from('profiles').select('id').eq('stripe_customer_id', customerId).maybeSingle();
-  if (!profile) throw new Error(`unknown stripe_customer_id: ${customerId}`);
-  await admin.from('subscriptions').upsert({
-    user_id: profile.id,
-    stripe_customer_id: customerId,
-    stripe_subscription_id: sub.id,
-    status: sub.status,
-    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' });
+
+  // 🌟 Extract user_id directly from the event payload metadata tokens
+  const targetUserId = sub.metadata?.supabase_user_id || sub.metadata?.user_id;
+  let userIdToAssign = targetUserId;
+
+  // If payload lacks metadata, fallback to matching mirrored mapping data in stripe.subscriptions schema
+  if (!userIdToAssign) {
+    const { data: stripeSubRow } = await admin
+      .schema('stripe')
+      .from('subscriptions')
+      .select('metadata')
+      .eq('id', sub.id)
+      .maybeSingle();
+
+    const dbMetadata = stripeSubRow?.metadata as Record<string, string> | undefined;
+    userIdToAssign = dbMetadata?.supabase_user_id || dbMetadata?.user_id;
+  }
+
+  if (!userIdToAssign) throw new Error(`unknown stripe_customer_id: ${customerId} with missing user routing tokens.`);
+
+  // Safe nested timestamp parsing to fix the 'Invalid time value' bug
+  const periodEndTimestamp = sub.items?.data?.[0]?.current_period_end;
+  const numericTimestamp = periodEndTimestamp ? Number(periodEndTimestamp) : null;
+  const isoPeriodEnd = event.type === 'customer.subscription.deleted' ? new Date().toISOString() :
+    (numericTimestamp && !isNaN(numericTimestamp)) ? new Date(numericTimestamp * 1000).toISOString() :
+      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const priceIdToAssign = sub.items?.data?.[0]?.price?.id || null;
+
+  // Fix upsert scheme mappings to align with migration primary keys
+  const { error } = await admin.from('subscriptions').upsert(
+    {
+      id: sub.id,
+      user_id: userIdToAssign,
+      status: sub.status,
+      price_id: priceIdToAssign,
+      current_period_end: isoPeriodEnd,
+    },
+    { onConflict: 'id' }
+  );
+
+  if (error) throw error;
 }
 
 async function reconcile(admin: ReturnType<typeof createClient>) {
-  const { data: profiles } = await admin
-    .from('profiles')
-    .select('id, stripe_customer_id')
-    .not('stripe_customer_id', 'is', null);
+  // 🌟 Join public.subscriptions against stripe.subscriptions to obtain real customer/user tokens
+  const { data: synchronizedItems, error: queryError } = await admin
+    .from('subscriptions')
+    .select(`
+      id,
+      user_id,
+      stripe_sub: id (
+        customer
+      )
+    `);
+
+  if (queryError) {
+    log.error('reconcile_fetch_failed', { error: queryError.message });
+    return { reconciled_corrected: 0 };
+  }
+
   let corrected = 0;
-  for (const p of profiles ?? []) {
-    const customerId = (p as { stripe_customer_id: string }).stripe_customer_id;
+
+
+  for (const item of synchronizedItems ?? []) {
+    // Safely typecast the joined relation from the stripe extension schema
+    const stripeSubData = item.stripe_sub as unknown as { customer: string } | undefined;
+    const customerId = stripeSubData?.customer;
+    if (!customerId) continue;
+
     try {
       const subs = await stripe.subscriptions.list({ customer: customerId, limit: 1, status: 'all' });
       const sub = subs.data[0];
       if (!sub) continue;
-      const { data: existing } = await admin
-        .from('subscriptions').select('status').eq('user_id', (p as { id: string }).id).maybeSingle();
-      if (!existing || existing.status !== sub.status) {
+
+      if (item.status !== sub.status) {
+        // Safe timestamp calculations
+        const periodEndTimestamp = sub.items?.data?.[0]?.current_period_end;
+        const numericTimestamp = periodEndTimestamp ? Number(periodEndTimestamp) : null;
+        const isoPeriodEnd = sub.status === 'canceled' 
+          ? new Date().toISOString() 
+          : (numericTimestamp && !isNaN(numericTimestamp)) 
+            ? new Date(numericTimestamp * 1000).toISOString() 
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        const priceIdToAssign = sub.items?.data?.[0]?.price?.id || null;
+
         await admin.from('subscriptions').upsert({
-          user_id: (p as { id: string }).id,
-          stripe_customer_id: customerId,
-          stripe_subscription_id: sub.id,
+          id: sub.id,
+          user_id: item.user_id,
           status: sub.status,
-          current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' });
+          price_id: priceIdToAssign,
+          current_period_end: isoPeriodEnd,
+        }, { onConflict: 'id' });
+        
         corrected++;
       }
     } catch (err) {
       log.warn('reconcile_customer_failed', { customer: customerId, error: String(err) });
     }
   }
+
   return { reconciled_corrected: corrected };
 }
