@@ -51,16 +51,24 @@ serve(async (req) => {
     // Find the user's Stripe customer via the latest subscription row.
     // The Stripe Sync Engine populates stripe.customers; we look it up via
     // the most recent stripe.subscriptions row owned by this user.
-    const { data: sub } = await supabase
+    const { data: customerRow, error: customerErr } = await supabase
       .schema('stripe')
       .from('subscriptions')
-      .select('customer')
-      .eq('metadata->>supabase_user_id', user.id)
+      .select('id')
+      .eq('user_id', user.id)
       .order('created', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    const customerId = (sub as { customer?: string } | null)?.customer;
+    if (customerErr) {
+      console.error('[create-portal-session] DB Fetch Error:', customerErr.message);
+      return new Response(JSON.stringify({ error: 'Database verification failed' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const customerId = customerRow?.id;
     if (!customerId) {
       return new Response(
         JSON.stringify({ error: 'No Stripe customer found for this user' }),
