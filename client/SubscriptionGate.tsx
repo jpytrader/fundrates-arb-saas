@@ -1,7 +1,8 @@
 import React, { useEffect, useState, type ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useSubscription, type SubscriptionState } from './use-subscription';
+import { type SubscriptionState } from './use-subscription';
 import { styles } from './SubscriptionGateStyles';
+import { executeGlobalSignOut } from './supabse-utils'; 
 
 interface SubscriptionGateProps {
   supabase: SupabaseClient;
@@ -131,11 +132,11 @@ export function SubscriptionGate({
   };
 
   const handleLogout = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if(e) e.preventDefault();
     setAuthError(null);
     setAuthLoading(true);
     try {
-      const { error } = await supabase.auth.signOut({ scope: 'global' }); // default: local (current tab/device)
+      const { error } = await executeGlobalSignOut(supabase); // default: local (current tab/device)
       if (error) {
         throw new Error(error.message);
       }
