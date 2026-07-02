@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
         results.push({ userId: row.user_id, ok: false, locked: true });
         continue;
       }
+      
       try {
         await tickUser(supabase, row);
         results.push({ userId: row.user_id, ok: true });
