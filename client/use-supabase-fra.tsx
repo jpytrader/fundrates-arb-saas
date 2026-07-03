@@ -78,10 +78,13 @@ export function useSupabaseFra(supabase: SupabaseClient) {
         },
         (payload) => {
           const freshStateBlob = payload.new?.state;
+          const liveIsRunningColumn = payload.new?.is_running; // Extract the relational database column flag
+          const liveVersionColumn = payload.new?.version;
+          
           if (freshStateBlob && store) {
             // Hydrate your persistent storage engine inline instead of remounting the DOM component tree
-            if (typeof (store as any).hydrate === 'function') {
-              (store as any).hydrate(freshStateBlob);
+            if (typeof store.hydrate === 'function') {
+              store.hydrate(freshStateBlob, liveVersionColumn, liveIsRunningColumn);
             }
           }
         },

@@ -26,6 +26,8 @@ export class SupabaseStateStore implements StateStore {
   
   // 🌟 NEW PARAMETER: Store a reference to an active reactive update listener
   private onStateUpdateListener: ((state: PersistedState) => void) | null = null;
+  // 🌟 NEW ATTR: Track the current rendering version in local memory cache
+  private currentLocalVersion: number = 0; 
 
   constructor(
     private supabase: SupabaseClient,
@@ -37,26 +39,32 @@ export class SupabaseStateStore implements StateStore {
     this.onStateUpdateListener = callback;
   }
 
-  // 🌟 NEW METHOD: Invoked externally by your Realtime subscription pipeline
-  public hydrate(rawState: unknown): void {
+  // 🌟 THE CORRECTED HYDRATE FUNCTION: Explicitly uses liveVersionColumn
+  public hydrate(rawState: unknown, incomingVersion: number, incomingIsRunning: boolean): void {
     if (!rawState) return;
-    const parsed = rawState as PersistedState;
 
-    // Apply the same robust version guards used inside your load() loop string
-    if (
-      parsed.version !== PERSISTENCE_VERSION &&
-      parsed.version !== PERSISTENCE_VERSION - 1
-    ) {
+    // 🚀 CRUCIAL CONCURRENCY GUARD: 
+    // If the database event belongs to an older, stale server processing tick, 
+    // discard it immediately to prevent it from overwriting the user's fresh "Stop" action.
+    if (incomingVersion < this.currentLocalVersion) {
+      console.log(`[SupabaseStateStore] Discarded stale real-time update (Incoming: v${incomingVersion} < Current: v${this.currentLocalVersion})`);
+      return; 
+    }
+
+    const parsed = rawState as PersistedState;
+    if (parsed.version !== PERSISTENCE_VERSION && parsed.version !== PERSISTENCE_VERSION - 1) {
       return;
     }
+
+    // Accept and synchronize the fresh baseline tracking number
+    this.currentLocalVersion = incomingVersion;
 
     const standardState: PersistedState = {
       ...parsed,
       version: PERSISTENCE_VERSION,
-      isRunning: parsed.isRunning ?? false,
+      isRunning: incomingIsRunning, // Enforce the flat relational column status
     };
 
-    // 🚀 FIRE LISTENER: Push the fresh state inline straight into the widget framework context
     if (this.onStateUpdateListener) {
       this.onStateUpdateListener(standardState);
     }
@@ -65,6 +73,8 @@ export class SupabaseStateStore implements StateStore {
   async save(state: PersistedState): Promise<void> {
     // Ensure our local configuration mirrors the target flag perfectly
     const targetRunningFlag = state.isRunning ?? false;
+    // Lock the local version to match the state payload being sent down the pipe
+    this.currentLocalVersion = state.version;
     
     // Upsert the canonical JSONB blob
     const { error } = await this.supabase
@@ -104,6 +114,9 @@ export class SupabaseStateStore implements StateStore {
       .maybeSingle();
 
     if (error || !data) return null;
+
+    // Seed the memory tracker so subsequent real-time triggers can be validated
+    this.currentLocalVersion = data.version ?? 0; 
 
     const parsed = data.state as PersistedState;
 
