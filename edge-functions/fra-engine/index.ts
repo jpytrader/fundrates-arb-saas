@@ -52,6 +52,7 @@ interface PersistedStateRow {
   user_id: string;
   state: Record<string, unknown>;
   is_running: boolean;
+  version: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,7 +127,7 @@ Deno.serve(async (req) => {
     // Fetch all running tenants
     const { data: rows, error } = await supabase
       .from('fra_state')
-      .select('user_id, state, is_running')
+      .select('user_id, state, is_running, version')
       .eq('is_running', true);
 
     if (error) {
@@ -155,7 +156,7 @@ Deno.serve(async (req) => {
         results.push({ userId: row.user_id, ok: false, locked: true });
         continue;
       }
-      
+
       try {
         await tickUser(supabase, row);
         results.push({ userId: row.user_id, ok: true });
@@ -295,7 +296,7 @@ async function loadAdapter(
  */
 async function tickUser(
   supabase: ReturnType<typeof createClient>,
-  row: PersistedStateRow,
+  row: PersistedStateRow & { version: number },
 ): Promise<void> {
   const persisted = row.state as unknown as PersistedState;
   const config: ArbConfig = { ...DEFAULT_CONFIG, ...(persisted?.config ?? {}) };
@@ -322,7 +323,11 @@ async function tickUser(
 
   // (6) Persist updated blob
   const updated = await store.load();
-  if (updated) {
+  
+  
+  // 🌟 GUARD: Only execute an UPDATE network payload if the engine mutated version counters
+  if (updated && updated.version !== row.version as any) {
+    console.log(`[ArbEngine] Version changed from ${row.version} -> ${updated.version}. Writing changes...`);
     await supabase
       .from('fra_state')
       .update({
@@ -331,6 +336,8 @@ async function tickUser(
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', row.user_id);
+  } else {
+    console.log("[ArbEngine] Diagnostic complete. No changes detected. Skipping database updates.");
   }
 
   // (7) Mirror events
