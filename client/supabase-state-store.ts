@@ -63,13 +63,20 @@ export class SupabaseStateStore implements StateStore {
   }
 
   async save(state: PersistedState): Promise<void> {
+    // Ensure our local configuration mirrors the target flag perfectly
+    const targetRunningFlag = state.isRunning ?? false;
+    
     // Upsert the canonical JSONB blob
     const { error } = await this.supabase
       .from('fra_state')
       .upsert(
         {
           user_id: this.userId,
-          state: state as unknown as Record<string, unknown>,
+          // 🌟 Ensure the interior json object matches the exact outer relation column
+          state: {
+            ...state,
+            isRunning: targetRunningFlag
+          } as unknown as Record<string, unknown>,
           version: state.version,
           is_running: state.isRunning ?? false,
           updated_at: new Date().toISOString(),
