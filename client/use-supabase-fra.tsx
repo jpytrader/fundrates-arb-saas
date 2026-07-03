@@ -63,9 +63,6 @@ export function useSupabaseFra(supabase: SupabaseClient) {
         : null,
     [supabase, userId, subscription.isActive],
   );
-
-  // Realtime: bump revision when the engine state row changes server-side.
-  const [revision, setRevision] = useState(0);
   useEffect(() => {
     if (!userId || !subscription.isActive) return;
     const uniqueId = Math.random().toString(36).substring(2, 9);
@@ -74,12 +71,20 @@ export function useSupabaseFra(supabase: SupabaseClient) {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'fra_state',
           filter: `user_id=eq.${userId}`,
         },
-        () => setRevision((r) => r + 1),
+        (payload) => {
+          const freshStateBlob = payload.new?.state;
+          if (freshStateBlob && store) {
+            // Hydrate your persistent storage engine inline instead of remounting the DOM component tree
+            if (typeof (store as any).hydrate === 'function') {
+              (store as any).hydrate(freshStateBlob);
+            }
+          }
+        },
       );
 
     void channel.subscribe((status) => {
@@ -93,5 +98,5 @@ export function useSupabaseFra(supabase: SupabaseClient) {
     };
   }, [supabase, userId, subscription.isActive]);
 
-  return { store, userId, revision, subscription };
+  return { store, userId, subscription };
 }

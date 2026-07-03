@@ -45,7 +45,7 @@ export function index() {
       {store ? (
         <>
           <FundingRateArb
-            key={revision}
+            // key={revision}
             theme="dark"
             persistenceStore={store}
             defaultConfig={{ dryRun: true }}

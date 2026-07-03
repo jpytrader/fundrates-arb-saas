@@ -7,7 +7,7 @@ import type {
 import { PERSISTENCE_VERSION } from '@jpytrader/fundrates-arb';
 
 /**
- * SupabaseStateStore — external StateStore adapter for the funding-rate-arb component.
+ * SupabaseStateStore — external StateStore adapter for the fundrates-arb component.
  *
  * Persists engine state, positions and P&L history into a per-user Supabase row,
  * scoped by RLS to `auth.uid()`. Designed to coexist with the server-side engine
@@ -23,10 +23,44 @@ import { PERSISTENCE_VERSION } from '@jpytrader/fundrates-arb';
  *     local store contract.
  */
 export class SupabaseStateStore implements StateStore {
+  
+  // 🌟 NEW PARAMETER: Store a reference to an active reactive update listener
+  private onStateUpdateListener: ((state: PersistedState) => void) | null = null;
+
   constructor(
     private supabase: SupabaseClient,
     private userId: string,
   ) {}
+
+  // 🌟 NEW METHOD: Allows your React workspace to register an update handler
+  public onStateUpdate(callback: (state: PersistedState) => void): void {
+    this.onStateUpdateListener = callback;
+  }
+
+  // 🌟 NEW METHOD: Invoked externally by your Realtime subscription pipeline
+  public hydrate(rawState: unknown): void {
+    if (!rawState) return;
+    const parsed = rawState as PersistedState;
+
+    // Apply the same robust version guards used inside your load() loop string
+    if (
+      parsed.version !== PERSISTENCE_VERSION &&
+      parsed.version !== PERSISTENCE_VERSION - 1
+    ) {
+      return;
+    }
+
+    const standardState: PersistedState = {
+      ...parsed,
+      version: PERSISTENCE_VERSION,
+      isRunning: parsed.isRunning ?? false,
+    };
+
+    // 🚀 FIRE LISTENER: Push the fresh state inline straight into the widget framework context
+    if (this.onStateUpdateListener) {
+      this.onStateUpdateListener(standardState);
+    }
+  }
 
   async save(state: PersistedState): Promise<void> {
     // Upsert the canonical JSONB blob
