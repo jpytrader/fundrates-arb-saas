@@ -298,6 +298,10 @@ async function tickUser(
   supabase: ReturnType<typeof createClient>,
   row: PersistedStateRow & { version: number },
 ): Promise<void> {
+  if (row.is_running === false || row.state?.isRunning === false) {
+    console.log(`[Deltametrician] Tenant ${row.user_id} has stopped. Execution aborted.`);
+    return;
+  }
   const persisted = row.state as unknown as PersistedState;
   const config: ArbConfig = { ...DEFAULT_CONFIG, ...(persisted?.config ?? {}) };
 
@@ -326,18 +330,31 @@ async function tickUser(
   
   
   // 🌟 GUARD: Only execute an UPDATE network payload if the engine mutated version counters
-  if (updated && updated.version !== row.version as any) {
-    console.log(`[ArbEngine] Version changed from ${row.version} -> ${updated.version}. Writing changes...`);
-    await supabase
+  if (updated) {
+    const { data: currentDbState } = await supabase
       .from('fra_state')
-      .update({
-        state: updated as unknown as Record<string, unknown>,
-        version: updated.version,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', row.user_id);
+      .select('is_running, state')
+      .eq('user_id', row.user_id)
+      .maybeSingle();
+
+    if (currentDbState && currentDbState.is_running === false) {
+      console.log(`[Deltametrician] User toggled engine off mid-tick for ${row.user_id}. Aborting database save.`);
+      return; // Exit out safely without overwriting the user's manual change!
+    }
+
+    if(updated.version !== row.version) {
+      console.log(`[Deltametrician] Version changed from ${row.version} -> ${updated.version}. Writing changes...`);
+      await supabase
+        .from('fra_state')
+        .update({
+          state: updated as unknown as Record<string, unknown>,
+          version: updated.version,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', row.user_id);
+    }
   } else {
-    console.log("[ArbEngine] Diagnostic complete. No changes detected. Skipping database updates.");
+    console.log("[Deltametrician] Diagnostic complete. No changes detected. Skipping database updates.");
   }
 
   // (7) Mirror events
