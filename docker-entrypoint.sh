@@ -88,7 +88,7 @@ else
       case "$FUNC" in
         "fra-engine")
           # Custom deployment pipeline script
-          bun run deploy:functions -- -no-verify-jwt --debug 2>&1 | grep -v "WARN: failed to read file" || true
+          bun run deploy:functions -- -no-verify-jwt 2>&1 | grep -v "WARN: failed to read file" || true
           ;;
         "create-checkout"|"create-portal-session")
           BULK_NO_JWT+=("$FUNC")
