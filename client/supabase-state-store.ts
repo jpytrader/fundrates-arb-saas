@@ -24,9 +24,9 @@ import { PERSISTENCE_VERSION } from '@jpytrader/fundrates-arb';
  */
 export class SupabaseStateStore implements StateStore {
   
-  // 🌟 NEW PARAMETER: Store a reference to an active reactive update listener
+  // Store a reference to an active reactive update listener
   private onStateUpdateListener: ((state: PersistedState) => void) | null = null;
-  // 🌟 NEW ATTR: Track the current rendering version in local memory cache
+  // Track the current rendering version in local memory cache
   private currentLocalVersion: number = 0; 
 
   constructor(
@@ -34,12 +34,10 @@ export class SupabaseStateStore implements StateStore {
     private userId: string,
   ) {}
 
-  // 🌟 NEW METHOD: Allows your React workspace to register an update handler
   public onStateUpdate(callback: (state: PersistedState) => void): void {
     this.onStateUpdateListener = callback;
   }
 
-  // 🌟 THE CORRECTED HYDRATE FUNCTION: Explicitly uses liveVersionColumn
   public hydrate(rawState: unknown, incomingVersion: number, incomingIsRunning: boolean): void {
     if (!rawState) return;
 
