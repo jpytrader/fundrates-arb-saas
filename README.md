@@ -94,4 +94,3 @@ in [`docs/BILLING.md`](./docs/BILLING.md).
 The `fundrates-arb` package remains project-agnostic. **All Supabase-specific
 code lives in this folder.** The store adapter implements the public `StateStore`
 interface exported from the component; no internal APIs are touched.
-
