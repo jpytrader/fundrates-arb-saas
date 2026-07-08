@@ -30,6 +30,8 @@ export interface PersistedState {
     phase: EnginePhase;
     positions: ArbPosition[];
     totalFundingCollected: number;
+    /** Cumulative execution cost (slippage) across all fills — persisted so analytics survive restarts */
+    totalExecutionCost?: number;
     config: ArbConfig;
     /** Historical P&L snapshots (capped at MAX_PNL_SNAPSHOTS) */
     pnlHistory: PnlSnapshot[];

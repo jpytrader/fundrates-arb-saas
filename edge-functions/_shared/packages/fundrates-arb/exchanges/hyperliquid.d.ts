@@ -21,7 +21,8 @@ interface HLKeys {
     apiSecret: string;
 }
 export interface HLWebSocketCallbacks {
-    onFundingRate?: (pair: string, rate: number, nextFundingTime: number) => void;
+    /** rate is always 8h-equivalent; intervalHours=1 signals HL's hourly settlement cadence */
+    onFundingRate?: (pair: string, rate: number, nextFundingTime: number, intervalHours: number) => void;
     onError?: (error: Error) => void;
     onConnect?: () => void;
     onDisconnect?: () => void;
