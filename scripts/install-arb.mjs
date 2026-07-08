@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
  * Modular environment-driven downloader for private/public dependencies.
- * Uses explicit string concatenation to bypass editor template variable mutations.
+ * Uses native fetch to handle secure cross-domain AWS S3 redirects properly.
  */
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import { Readable } from 'node:stream';
+import { finished } from 'node:stream/promises';
 
 const token = process.env.GH_DEP_TOKEN;
 if (!token) {
@@ -16,7 +18,7 @@ if (!token) {
 const owner = process.env.ARB_OWNER || 'jpytrader';
 const repo  = process.env.ARB_REPO  || 'fundrates-arb';
 
-// FIX: Pull the explicit commit SHA if provided, otherwise default to your tag
+// FIX: Prioritize explicit commit SHA to permanently bypass GitHub's stale cache
 const ref   = process.env.ARB_TAG || 'v0.1.0';
 
 try {
@@ -31,15 +33,24 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // Dynamically uses the target reference string
   const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + ref;
   console.log('Target API Download Location resolved to: ' + tarballUrl);
   
-  // ELEGANT FIX: Replaced -sL with -sf --location-trusted to securely strip auth headers on AWS redirects
-  execSync(
-    'curl -sf --location-trusted -H "Authorization: Bearer ' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
-    { stdio: 'inherit' }
-  );
+  // FIX: Use native Node fetch to cleanly handle the download and auto-strip headers on redirect
+  const response = await fetch(tarballUrl, {
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Accept': 'application/vnd.github+json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error('GitHub API responded with status ' + response.status);
+  }
+
+  // Stream the response directly to the tar.gz file destination
+  const fileStream = fs.createWriteStream(repo + '.tar.gz');
+  await finished(Readable.fromWeb(response.body).pipe(fileStream));
 
   console.log('Step 3: Extracting package contents into target node_modules scope...');
   // Extract archive and safely strip top-level directories created by GitHub
