@@ -39,55 +39,58 @@ export function index() {
       setIsLoggingOut(false);
     }
   };
+
+  const headerSlotContainer = (
+    <div style={{ textAlign: 'center', marginTop: 16 }}>
+      <button
+        type="button"
+        onClick={() => void subscription.openPortal()}
+        style={{
+          padding: '6px 14px',
+          borderRadius: 6,
+          border: '1px solid #334155',
+          background: 'transparent',
+          color: '#94a3b8',
+          cursor: 'pointer',
+          fontSize: 13,
+        }}
+      >
+        Manage subscription
+      </button>
+
+      {/* 🌟 INTEGRATED SIGN OUT BUTTON */}
+      <button
+        type="button"
+        disabled={isLoggingOut}
+        onClick={handleDashboardLogout}
+        style={{
+          padding: '6px 14px',
+          borderRadius: 6,
+          border: '1px solid #334155',
+          background: '#1e293b',
+          color: '#f1f5f9',
+          cursor: isLoggingOut ? 'not-allowed' : 'pointer',
+          fontSize: 13,
+          opacity: isLoggingOut ? 0.6 : 1,
+        }}
+      >
+        {isLoggingOut ? 'Signing out...' : 'Sign out'}
+      </button>
+    </div>
+  );
   
   return (
     <SubscriptionGate supabase={supabase} userId={userId} priceId={STRIPE_PRICE_ID} subscription={subscription}>
       {store ? (
         <>
           <FundingRateArb
-            // key={revision}
+            headerSlot={headerSlotContainer}
             theme="dark"
             persistenceStore={store}
             defaultConfig={{ dryRun: true }}
             onExecution={(e) => console.log('[FRA]', e)}
             onError={(err) => console.error('[FRA]', err)}
           />
-          <div style={{ textAlign: 'center', marginTop: 16 }}>
-            <button
-              type="button"
-              onClick={() => void subscription.openPortal()}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 6,
-                border: '1px solid #334155',
-                background: 'transparent',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                fontSize: 13,
-              }}
-            >
-              Manage subscription
-            </button>
-
-            {/* 🌟 INTEGRATED SIGN OUT BUTTON */}
-            <button
-              type="button"
-              disabled={isLoggingOut}
-              onClick={handleDashboardLogout}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 6,
-                border: '1px solid #334155',
-                background: '#1e293b',
-                color: '#f1f5f9',
-                cursor: isLoggingOut ? 'not-allowed' : 'pointer',
-                fontSize: 13,
-                opacity: isLoggingOut ? 0.6 : 1,
-              }}
-            >
-              {isLoggingOut ? 'Signing out...' : 'Sign out'}
-            </button>
-          </div>
         </>
       ) : (
         <div style={{ textAlign: 'center', padding: 24 }}>Loading dashboard…</div>
