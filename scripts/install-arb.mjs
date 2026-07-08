@@ -29,8 +29,9 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // FIXED: Explicitly includes the required forward slash and repos directory segment
-  const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + tag;
+  // MODIFIED: Append a dynamic cache-busting timestamp parameter to the URL
+  const cacheBuster = Date.now();
+  const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + tag + '?cb=' + cacheBuster;
   console.log('Target API Download Location resolved to: ' + tarballUrl);
   
   // Download using curl with explicit header mapping structures targeting the API
