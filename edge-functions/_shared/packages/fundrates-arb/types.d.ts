@@ -37,11 +37,30 @@ export interface ArbConfig {
 export declare const DEFAULT_CONFIG: ArbConfig;
 export interface FundingRate {
     pair: string;
+    /**
+     * Always stored as 8h-equivalent decimal (canonical internal unit).
+     * e.g. 0.0001 = 0.01% per 8h
+     * HL raw rates (1h) are multiplied by 8 at the adapter boundary before storage.
+     * OKX rates are native 8h — no conversion needed.
+     */
     rate: number;
     nextFundingTime: number;
     timestamp?: number;
-    intervalHours?: number;
+    /**
+     * Native settlement cadence for the source exchange.
+     * 1 = Hyperliquid (hourly settlements), 8 = OKX (8-hour settlements).
+     * Used by display components to show "1h settle" / "8h settle" badges
+     * and to contextualise the `nextFundingTime` countdown.
+     * The `rate` field is ALWAYS 8h-equivalent regardless of this value.
+     */
+    intervalHours: number;
 }
+/**
+ * Native funding settlement interval per exchange.
+ * The `rate` field in FundingRate is always normalised to 8h-equivalent;
+ * this constant records the exchange's real cadence for display purposes.
+ */
+export declare const EXCHANGE_INTERVAL_HOURS: Record<ExchangeId, number>;
 /** Exchange-reported funding settlement record */
 export interface FundingSettlement {
     pair: string;
@@ -56,6 +75,13 @@ export interface OrderParams {
     reduceOnly?: boolean;
     orderType?: 'market' | 'limit';
     limitPrice?: number;
+    /**
+     * Current mark price for this leg (spot or perp).
+     * Adapters use this to convert `sizeUsd` → exchange-native base-asset qty
+     * or contract count before placing the order.
+     * Falls back to `limitPrice` when not provided.
+     */
+    markPrice?: number;
 }
 export interface OrderResult {
     orderId: string;
@@ -80,6 +106,15 @@ export interface ExchangeAdapter {
     placePerpOrder(params: OrderParams): Promise<OrderResult>;
     getPositions(): Promise<Position[]>;
     cancelOrder(orderId: string, pair?: string): Promise<void>;
+    /**
+     * Convert a UI pair string (e.g. "BTC/USDT") to the exchange-native
+     * instrument identifier used by order-status polling and other API calls.
+     * Optional — engine falls back to the raw pair string when absent.
+     *
+     * type='SPOT' → e.g. "BTC-USDT" (OKX) or "BTC" (HL coin name)
+     * type='SWAP' → e.g. "BTC-USD-SWAP" (OKX) or "BTC" (HL coin name)
+     */
+    toInstId?(pair: string, type: 'SPOT' | 'SWAP'): string;
     /** Fetch current mark prices for pairs from the exchange API (on-chain source of truth) */
     getMarkPrices(pairs: string[]): Promise<MarkPrice[]>;
     /**
@@ -191,4 +226,11 @@ export interface FundingRateArbProps {
     defaultConfig?: Partial<ArbConfig>;
     /** Custom persistence store. Defaults to LocalStorageStore. */
     persistenceStore?: StateStore;
+    /**
+     * Optional React node rendered inside the FundingRateArb container
+     * immediately below the header title row, above the main dashboard content.
+     * The slot imposes no styling — the caller owns all visual design.
+     * Useful for status banners, account indicators, custom alerts, etc.
+     */
+    headerSlot?: React.ReactNode;
 }

@@ -18,7 +18,8 @@ interface OKXKeys {
     passphrase: string;
 }
 export interface OKXWebSocketCallbacks {
-    onFundingRate?: (pair: string, rate: number, nextFundingTime: number) => void;
+    /** rate is always 8h-equivalent; intervalHours=8 signals OKX's 8h settlement cadence */
+    onFundingRate?: (pair: string, rate: number, nextFundingTime: number, intervalHours: number) => void;
     onError?: (error: Error) => void;
     onConnect?: () => void;
     onDisconnect?: () => void;
