@@ -12,21 +12,16 @@ if (!token) {
   process.exit(1);
 }
 
+// Safely extract environment values passed directly from the GitHub Actions runner
 const owner = process.env.ARB_OWNER || 'jpytrader';
 const repo  = process.env.ARB_REPO  || 'fundrates-arb';
-
-// MODIFIED: Use the precise runtime commit SHA passed from your workflow step
-const ref = process.env.GH_COMMIT_SHA;
-if (!ref) {
-  console.error('CRITICAL: GH_COMMIT_SHA environment variable is missing.');
-  process.exit(1);
-}
+const tag   = process.env.ARB_TAG   || 'v0.1.0';
 
 try {
   console.log('Step 1: Installing public manifest dependencies via Bun...');
   execSync('bun install', { stdio: 'inherit' });
 
-  console.log('Step 2: Extracting tarball archive cleanly via Native Git Remote Engine...');
+  console.log('Step 2: Downloading tarball archive via GitHub API...');
   const targetDir = 'node_modules/@jpytrader/' + repo;
   
   // Isolate and prepare the target node_modules directories cleanly
@@ -34,19 +29,15 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // Build an authenticated HTTPS repository clone URL matching standard Git credentials
-  const repoUrl = 'https://x-access-token:' + token + '@github.com/' + owner + '/' + repo + '.git';
+  // FIXED: Explicitly includes the required forward slash and repos directory segment
+  const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + tag;
+  console.log('Target API Download Location resolved to: ' + tarballUrl);
   
-  // MODIFIED: Completely bypass curl/API layers. Fetch live commits instantly without cache proxy bugs.
-  // 1. Fetch the exact runtime commit object into a shallow temporary scratch space
-  execSync('git clone --depth 1 --no-checkout "' + repoUrl + '" temp_scratch_clone', { stdio: 'ignore' });
-  
-  // 2. Navigate inside, isolate the exact SHA context, and create the tarball snapshot stream
-  execSync('git -C temp_scratch_clone fetch --depth 1 origin ' + ref, { stdio: 'ignore' });
-  execSync('git -C temp_scratch_clone archive --format=tar.gz ' + ref + ' --output=../' + repo + '.tar.gz', { stdio: 'ignore' });
-  
-  // Clean up the temporary structural clone tracking workspace
-  fs.rmSync('temp_scratch_clone', { recursive: true, force: true });
+  // Download using curl with explicit header mapping structures targeting the API
+  execSync(
+    'curl -sL -H "Authorization: Bearer ' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
+    { stdio: 'inherit' }
+  );
 
   console.log('Step 3: Extracting package contents into target node_modules scope...');
   // Extract archive and safely strip top-level directories created by GitHub
