@@ -23,7 +23,7 @@ const supabase = createClient(SUPABASE_URL,SUPABASE_ANON_KEY,);
  *      server-side engine writes to the state row.
  */
 export function index() {
-  const { store, userId, revision, subscription } = useSupabaseFra(supabase);
+  const { store, userId, subscription } = useSupabaseFra(supabase);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleDashboardLogout = async () => {
@@ -57,8 +57,6 @@ export function index() {
       >
         Manage subscription
       </button>
-
-      {/* 🌟 INTEGRATED SIGN OUT BUTTON */}
       <button
         type="button"
         disabled={isLoggingOut}
@@ -84,7 +82,7 @@ export function index() {
       {store ? (
         <>
           <FundingRateArb
-            headerSlot={headerSlotContainer}
+            headerSlot="TESTING_PROP_DELIVERY"
             theme="dark"
             persistenceStore={store}
             defaultConfig={{ dryRun: true }}
