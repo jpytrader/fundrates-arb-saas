@@ -15,9 +15,9 @@ if (!token) {
 // Safely extract environment values passed directly from the GitHub Actions runner
 const owner = process.env.ARB_OWNER || 'jpytrader';
 const repo  = process.env.ARB_REPO  || 'fundrates-arb';
-
-// Prioritize an explicit commit SHA over a static tag to completely bypass proxy caches.
-const ref = process.env.GH_COMMIT_SHA || process.env.ARB_TAG || 'v0.1.0';
+const tag   = process.env.ARB_TAG   || 'v0.1.0';
+// Capture the runtime commit SHA to append as a route-level cache buster
+const sha   = process.env.GH_COMMIT_SHA;
 
 try {
   console.log('Step 1: Installing public manifest dependencies via Bun...');
@@ -31,13 +31,16 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // Pointing this directly to an explicit commit reference completely neutralizes the cache.
-  const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + ref;
+  // RESTORED & MODIFIED: Reverted to your working tag path format, but appended '?ref=' to explicitly force a cache bust via internal API routing.
+  let tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + tag;
+  if (sha) {
+    tarballUrl += '?ref=' + sha;
+  }
   console.log('Target API Download Location resolved to: ' + tarballUrl);
   
-  // MODIFIED: Added -f/--fail to prevent downloading bad payloads, and replaced Bearer Auth with standard basic token auth mapping (-u)
+  // Add -f parameter to prevent bad content payload extraction on error states.
   execSync(
-    'curl -sLf -u "x-access-token:' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
+    'curl -sLf -H "Authorization: Bearer ' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
     { stdio: 'inherit' }
   );
 
