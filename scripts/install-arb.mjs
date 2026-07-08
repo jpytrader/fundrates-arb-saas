@@ -15,7 +15,9 @@ if (!token) {
 // Safely extract environment values passed directly from the GitHub Actions runner
 const owner = process.env.ARB_OWNER || 'jpytrader';
 const repo  = process.env.ARB_REPO  || 'fundrates-arb';
-const tag   = process.env.ARB_TAG   || 'v0.1.0';
+
+// MODIFIED: Prioritize an explicit commit SHA over a static tag to completely bypass proxy caches.
+const ref = process.env.GH_COMMIT_SHA || process.env.ARB_TAG || 'v0.1.0';
 
 try {
   console.log('Step 1: Installing public manifest dependencies via Bun...');
@@ -29,9 +31,8 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // MODIFIED: Append a dynamic cache-busting timestamp parameter to the URL
-  const cacheBuster = Date.now();
-  const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + tag + '?cb=' + cacheBuster;
+  // MODIFIED: Pointing this directly to an explicit commit reference completely neutralizes the cache.
+  const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + ref;
   console.log('Target API Download Location resolved to: ' + tarballUrl);
   
   // Download using curl with explicit header mapping structures targeting the API
