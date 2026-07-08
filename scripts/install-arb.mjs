@@ -16,7 +16,7 @@ if (!token) {
 const owner = process.env.ARB_OWNER || 'jpytrader';
 const repo  = process.env.ARB_REPO  || 'fundrates-arb';
 
-// MODIFIED: Prioritize an explicit commit SHA over a static tag to completely bypass proxy caches.
+// Prioritize an explicit commit SHA over a static tag to completely bypass proxy caches.
 const ref = process.env.GH_COMMIT_SHA || process.env.ARB_TAG || 'v0.1.0';
 
 try {
@@ -31,13 +31,13 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // MODIFIED: Pointing this directly to an explicit commit reference completely neutralizes the cache.
+  // Pointing this directly to an explicit commit reference completely neutralizes the cache.
   const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + ref;
   console.log('Target API Download Location resolved to: ' + tarballUrl);
   
-  // Download using curl with explicit header mapping structures targeting the API
+  // MODIFIED: Added -f/--fail to prevent downloading bad payloads, and replaced Bearer Auth with standard basic token auth mapping (-u)
   execSync(
-    'curl -sL -H "Authorization: Bearer ' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
+    'curl -sLf -u "x-access-token:' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
     { stdio: 'inherit' }
   );
 
