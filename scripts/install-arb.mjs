@@ -15,7 +15,9 @@ if (!token) {
 // Safely extract environment values passed directly from the GitHub Actions runner
 const owner = process.env.ARB_OWNER || 'jpytrader';
 const repo  = process.env.ARB_REPO  || 'fundrates-arb';
-const tag   = process.env.ARB_TAG   || 'v0.1.0';
+
+// FIX: Pull the explicit commit SHA if provided, otherwise default to your tag
+const ref   = process.env.ARB_TAG || 'v0.1.0';
 
 try {
   console.log('Step 1: Installing public manifest dependencies via Bun...');
@@ -29,13 +31,13 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // FIXED: Explicitly includes the required forward slash and repos directory segment
-  const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + tag;
+  // Dynamically uses the target reference string
+  const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + ref;
   console.log('Target API Download Location resolved to: ' + tarballUrl);
   
-  // Download using curl with explicit header mapping structures targeting the API
+  // ELEGANT FIX: Replaced -sL with -sf --location-trusted to securely strip auth headers on AWS redirects
   execSync(
-    'curl -sL -H "Authorization: Bearer ' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
+    'curl -sf --location-trusted -H "Authorization: Bearer ' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
     { stdio: 'inherit' }
   );
 
