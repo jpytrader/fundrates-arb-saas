@@ -47,7 +47,7 @@ export function index() {
 
   const headerSlotContainer = (
     // Fix: Added display flex and gap utilities to separate and align both action buttons
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: 16 }}>
+    <div style={{ display: 'flex', alignItems: 'right', gap: '10px'}}>
       <button
         type="button"
         title="Manage Subscription"
@@ -68,9 +68,9 @@ export function index() {
       >
         <SubscriptionIcon size={16}/>
       </button>
-      
       <button
         type="button"
+        title="Sign Out"
         disabled={isLoggingOut}
         onClick={handleDashboardLogout}
         style={{
@@ -94,7 +94,6 @@ export function index() {
         ) : (
           <>
             <LogoutIcon size={16} />
-            <span>Sign out</span>
           </>
         )}
       </button>
@@ -106,6 +105,7 @@ export function index() {
       {store ? (
         <>
           <FundingRateArb
+            engineName="Deltamaths"
             headerSlot={headerSlotContainer}
             theme="dark"
             persistenceStore={store}
