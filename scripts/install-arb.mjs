@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
  * Modular environment-driven downloader for private/public dependencies.
- * Uses explicit string concatenation to bypass editor template variable mutations.
+ * Uses native fetch with explicit error terminations and robust redirect mapping.
  */
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import { Readable } from 'node:stream';
+import { finished } from 'node:stream/promises';
 
 const token = process.env.GH_DEP_TOKEN;
 if (!token) {
@@ -16,8 +18,8 @@ if (!token) {
 const owner = process.env.ARB_OWNER || 'jpytrader';
 const repo  = process.env.ARB_REPO  || 'fundrates-arb';
 
-// MODIFIED: Prioritize an explicit commit SHA over a static tag to completely bypass proxy caches.
-const ref = process.env.GH_COMMIT_SHA || process.env.ARB_TAG || 'v0.1.0';
+// FIX: Target your active moving branch pointer to natively break the release tag cache
+const ref   = process.env.ARB_BRANCH || process.env.ARB_TAG || 'main';
 
 try {
   console.log('Step 1: Installing public manifest dependencies via Bun...');
@@ -31,15 +33,27 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // MODIFIED: Pointing this directly to an explicit commit reference completely neutralizes the cache.
+  // ALTERNATIVE HIGH-STABILITY ARCHIVE ROUTE
   const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + ref;
   console.log('Target API Download Location resolved to: ' + tarballUrl);
   
-  // Download using curl with explicit header mapping structures targeting the API
-  execSync(
-    'curl -sL -H "Authorization: Bearer ' + token + '" -H "Accept: application/vnd.github+json" "' + tarballUrl + '" -o "' + repo + '.tar.gz"',
-    { stdio: 'inherit' }
-  );
+  const response = await fetch(tarballUrl, {
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Accept': 'application/vnd.github+json'
+    }
+  });
+
+  // FIX: Force hard script termination here so the workflow doesn't fail silently or run blind steps
+  if (!response.ok) {
+    console.error('CRITICAL ERROR: GitHub API validation failed with status: ' + response.status);
+    console.error('This means GH_DEP_TOKEN lacks access permissions to ' + owner + '/' + repo + ' or the branch "' + ref + '" does not exist.');
+    process.exit(1);
+  }
+
+  // Stream the response body securely into the localized target file
+  const fileStream = fs.createWriteStream(repo + '.tar.gz');
+  await finished(Readable.fromWeb(response.body).pipe(fileStream));
 
   console.log('Step 3: Extracting package contents into target node_modules scope...');
   // Extract archive and safely strip top-level directories created by GitHub

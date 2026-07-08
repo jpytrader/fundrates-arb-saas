@@ -55,7 +55,8 @@ jobs:
         env:
           ARB_OWNER: 'jpytrader'
           ARB_REPO: 'fundrates-arb'
-          ARB_TAG: 'v0.1.0'
+          ARB_TAG: 'main' # ${{ github.sha }} # 'v0.1.0'
+          GH_DEP_TOKEN: ${{ secrets.CI_PAT }}
         run: node scripts/install-arb.mjs
       
       - name: Debug downloaded package structure and pre-assemble edge-functions shared artifacts

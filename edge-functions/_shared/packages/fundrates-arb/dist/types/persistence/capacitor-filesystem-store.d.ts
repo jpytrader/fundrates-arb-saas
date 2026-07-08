@@ -6,7 +6,7 @@ import { FileSystemStore } from './file-system-store';
  *
  * Usage:
  * ```ts
- * import { CapacitorFilesystemStore } from '@vireson/funding-rate-arb';
+ * import { CapacitorFilesystemStore } from '@jpytrader/fundrates-arb';
  * const store = new CapacitorFilesystemStore();
  * const engine = new ArbEngine(config, adapter, store);
  * ```
