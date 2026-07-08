@@ -56,6 +56,7 @@ jobs:
           ARB_OWNER: 'jpytrader'
           ARB_REPO: 'fundrates-arb'
           ARB_TAG: 'v0.1.0'
+          GH_COMMIT_SHA: ${{ github.sha }}
         run: node scripts/install-arb.mjs
       
       - name: Debug downloaded package structure and pre-assemble edge-functions shared artifacts
