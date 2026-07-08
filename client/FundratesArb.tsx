@@ -66,7 +66,7 @@ export function index() {
           height: '32px'
         }}
       >
-        <SubscriptionIcon size={16}/>
+        <SubscriptionIcon size={14}/>
       </button>
       <button
         type="button"
@@ -93,7 +93,7 @@ export function index() {
           <>Signing out...</>
         ) : (
           <>
-            <LogoutIcon size={16} />
+            <LogoutIcon size={14} />
           </>
         )}
       </button>
