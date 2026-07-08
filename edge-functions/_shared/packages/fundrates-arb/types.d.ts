@@ -219,6 +219,7 @@ export interface ExecutionEvent {
 }
 import type { StateStore } from './persistence/types';
 export interface FundingRateArbProps {
+    engineName: string;
     exchangeKeys?: ExchangeKeys;
     onExecution?: (event: ExecutionEvent) => void;
     onError?: (err: Error) => void;
