@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Modular environment-driven downloader for private/public dependencies.
- * Uses native fetch to handle secure cross-domain AWS S3 redirects properly.
+ * Uses native fetch with explicit error terminations and robust redirect mapping.
  */
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -18,8 +18,8 @@ if (!token) {
 const owner = process.env.ARB_OWNER || 'jpytrader';
 const repo  = process.env.ARB_REPO  || 'fundrates-arb';
 
-// FIX: Prioritize explicit commit SHA to permanently bypass GitHub's stale cache
-const ref   = process.env.ARB_TAG || 'v0.1.0';
+// FIX: Target your active moving branch pointer to natively break the release tag cache
+const ref   = process.env.ARB_BRANCH || process.env.ARB_TAG || 'main';
 
 try {
   console.log('Step 1: Installing public manifest dependencies via Bun...');
@@ -33,10 +33,10 @@ try {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(targetDir, { recursive: true });
 
+  // ALTERNATIVE HIGH-STABILITY ARCHIVE ROUTE
   const tarballUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/tarball/' + ref;
   console.log('Target API Download Location resolved to: ' + tarballUrl);
   
-  // FIX: Use native Node fetch to cleanly handle the download and auto-strip headers on redirect
   const response = await fetch(tarballUrl, {
     headers: {
       'Authorization': 'Bearer ' + token,
@@ -44,11 +44,14 @@ try {
     }
   });
 
+  // FIX: Force hard script termination here so the workflow doesn't fail silently or run blind steps
   if (!response.ok) {
-    throw new Error('GitHub API responded with status ' + response.status);
+    console.error('CRITICAL ERROR: GitHub API validation failed with status: ' + response.status);
+    console.error('This means GH_DEP_TOKEN lacks access permissions to ' + owner + '/' + repo + ' or the branch "' + ref + '" does not exist.');
+    process.exit(1);
   }
 
-  // Stream the response directly to the tar.gz file destination
+  // Stream the response body securely into the localized target file
   const fileStream = fs.createWriteStream(repo + '.tar.gz');
   await finished(Readable.fromWeb(response.body).pipe(fileStream));
 
