@@ -53,17 +53,16 @@ export function index() {
         title="Manage Subscription"
         onClick={() => void subscription.openPortal()}
         style={{
-          display: 'inline-flex',
+          padding: 6,
+          borderRadius: 6,
+          border: '1px solid var(--fra-border)',
+          backgroundColor: 'transparent',
+          color: 'var(--fra-muted)',
+          gap: '8px',
+          cursor: 'pointer',
+          display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '6px 14px',
-          borderRadius: 6,
-          border: '1px solid #334155',
-          background: 'transparent',
-          color: '#94a3b8',
-          cursor: 'pointer',
-          fontSize: 13,
-          height: '32px'
         }}
       >
         <SubscriptionIcon size={14}/>
@@ -74,19 +73,16 @@ export function index() {
         disabled={isLoggingOut}
         onClick={handleDashboardLogout}
         style={{
-          display: 'inline-flex', // Fix: Added flex formatting context for layout alignment
+          padding: 6,
+          borderRadius: 6,
+          border: '1px solid var(--fra-border)',
+          backgroundColor: 'transparent',
+          color: 'var(--fra-muted)',
+          display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '8px',            // Fix: Clean layout gap between SVG framework and text strings
-          padding: '6px 14px',
-          borderRadius: 6,
-          border: '1px solid #334155',
-          background: '#1e293b',
-          color: '#f1f5f9',
           cursor: isLoggingOut ? 'not-allowed' : 'pointer',
-          fontSize: 13,
           opacity: isLoggingOut ? 0.6 : 1,
-          height: '32px'
         }}
       >
         {isLoggingOut ? (
