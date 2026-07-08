@@ -30,7 +30,7 @@ const LogoutIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
 );
 
 // Fix: Capitalized to 'Index' so React safely recognizes hooks inside it
-export function Index() {
+export function index() {
   const { store, userId, subscription } = useSupabaseFra(supabase);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
