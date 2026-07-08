@@ -61,7 +61,7 @@ supabase-saas/
 ```
 
 > A condensed, single-page deploy walk-through aimed at first-time users lives in
-> [`../funding-rate-arb/E2E_BILLING.md`](../fundrates-arb/E2E_BILLING.md).
+> [`../fundrate7s-arb/E2E_BILLING.md`](../fundrates-arb/E2E_BILLING.md).
 
 ## Quick start
 
