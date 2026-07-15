@@ -12,7 +12,7 @@ interface SubscriptionGateProps {
   children: ReactNode;
 }
 // Modal steps
-type AuthStep = 'credentials' | 'otp_verify';
+type AuthStep = 'credentials' | 'otp_verify' | 'forgot' | 'reset_sent' | 'new_password';
 
 export function SubscriptionGate({
   supabase,
@@ -32,6 +32,8 @@ export function SubscriptionGate({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -88,6 +90,10 @@ export function SubscriptionGate({
           }
         });
         if (error) throw error;
+        // Supabase returns an empty identities array when the email is already registered.
+        if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+          throw new Error(`An account with this email already exists. Please sign in instead.`);
+        }
         // CHECK: Email confirmation is enabled, so data.session will be null here
         if (!data.session) {
           // We throw a fresh error here to stop execution before redirectToCheckout is called
@@ -143,11 +149,72 @@ export function SubscriptionGate({
     }
   };
 
+  // Listen for PASSWORD_RECOVERY event (user clicked the reset link in their email).
+  // Supabase exchanges the token automatically and fires this event with a live session,
+  // so we just need to open the "set new password" step.
+  useEffect(() => {
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthStep('new_password');
+        setNewPassword('');
+        setConfirmPassword('');
+        setAuthError(null);
+        setIsAuthModalOpen(true);
+      }
+    });
+    return () => authSub.unsubscribe();
+  }, [supabase]);
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      setAuthStep('reset_sent');
+    } catch (err: any) {
+      setAuthError(err.message || 'Could not send reset email. Please try again.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSetNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    if (newPassword.length < 8) {
+      setAuthError('Password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setAuthError('Passwords do not match.');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      // Session is already live; closing the modal lets the gate re-evaluate auth state.
+      setIsAuthModalOpen(false);
+      setAuthStep('credentials');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setAuthError(err.message || 'Could not update password. Please try again.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const openModal = (mode: 'signin' | 'signup') => {
     setAuthMode(mode);
     setAuthError(null);
     setEmail('');
     setPassword('');
+    setAuthStep('credentials');
     setIsAuthModalOpen(true);
   };
 
@@ -200,16 +267,21 @@ export function SubscriptionGate({
           <div style={styles.modalOverlay} onClick={() => setIsAuthModalOpen(false)}>
             <div style={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
               <h2 style={styles.modalTitle}>
-                {authStep === 'credentials' ? (authMode === 'signin' ? 'Welcome Back' : 'Create Deltametrician') : 'Verify OTP'}
+                {authStep === 'credentials' && (authMode === 'signin' ? 'Welcome Back' : 'Create Deltametrician')}
+                {authStep === 'otp_verify'   && 'Verify OTP'}
+                {authStep === 'forgot'       && 'Reset Password'}
+                {authStep === 'reset_sent'   && 'Check Your Inbox'}
+                {authStep === 'new_password' && 'Set New Password'}
               </h2>
-              <p style={styles.modalSubtitle}>
-                {authMode === 'signin' 
-                  ? 'Enter your credentials to access the Metrics dashboard.' 
-                  : 'Create your Deltametrician securely with Stripe.'}
-              </p>
 
-              {authStep === 'credentials' ? (
+              {/* STEP 1: Email + Password */}
+              {authStep === 'credentials' && (
                 <form onSubmit={handleAuthAction} style={styles.form}>
+                  <p style={styles.modalSubtitle}>
+                    {authMode === 'signin'
+                      ? 'Enter your credentials to access the Metrics dashboard.'
+                      : 'Create your Deltametrician securely with Stripe.'}
+                  </p>
                   <input
                     type="email"
                     placeholder="Email address"
@@ -226,13 +298,22 @@ export function SubscriptionGate({
                     onChange={(e) => setPassword(e.target.value)}
                     style={styles.input}
                   />
-
+                  {authMode === 'signin' && (
+                    <span
+                      style={{ ...styles.toggleLink, fontSize: 13, textAlign: 'right', cursor: 'pointer' }}
+                      onClick={() => { setAuthStep('forgot'); setAuthError(null); }}
+                    >
+                      Forgot password?
+                    </span>
+                  )}
                   <button type="submit" disabled={authLoading} style={styles.submitBtn}>
                     {authLoading ? 'Processing…' : authMode === 'signin' ? 'Sign In' : 'Sign Up & Subscribe'}
                   </button>
                 </form>
-              ) : (
-                /* STEP 2: OTP CODE FORM */
+              )}
+
+              {/* STEP 2: OTP verification */}
+              {authStep === 'otp_verify' && (
                 <form onSubmit={handleOtpVerify} style={styles.form}>
                   <p style={styles.modalSubtitle}>Enter verification code sent to <strong>{email}</strong>.</p>
                   <input
@@ -247,26 +328,103 @@ export function SubscriptionGate({
                   <button type="submit" disabled={authLoading} style={styles.submitBtn}>
                     {authLoading ? 'Verifying…' : 'Confirm Code'}
                   </button>
-                  
-                  <button 
-                    type="button" 
-                    onClick={() => { setAuthStep('credentials'); setAuthError(null); }} 
+                  <button
+                    type="button"
+                    onClick={() => { setAuthStep('credentials'); setAuthError(null); }}
                     style={styles.toggleBtn}
                   >
                     ← Back
                   </button>
                 </form>
               )}
-                
+
+              {/* STEP 3: Forgot password — email input */}
+              {authStep === 'forgot' && (
+                <form onSubmit={handleForgotPassword} style={styles.form}>
+                  <p style={styles.modalSubtitle}>
+                    Enter the email address linked to your account and we'll send a reset link.
+                  </p>
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    style={styles.input}
+                  />
+                  <button type="submit" disabled={authLoading} style={styles.submitBtn}>
+                    {authLoading ? 'Sending…' : 'Send Reset Link'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthStep('credentials'); setAuthError(null); }}
+                    style={styles.toggleBtn}
+                  >
+                    ← Back to sign in
+                  </button>
+                </form>
+              )}
+
+              {/* STEP 4: Reset link sent — confirmation */}
+              {authStep === 'reset_sent' && (
+                <div style={{ textAlign: 'center' }}>
+                  <p style={styles.modalSubtitle}>
+                    A password reset link has been sent to <strong>{email}</strong>.<br />
+                    Click the link in the email to set a new password.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthStep('credentials'); setAuthError(null); }}
+                    style={styles.toggleBtn}
+                  >
+                    ← Back to sign in
+                  </button>
+                </div>
+              )}
+
+              {/* STEP 5: Set new password (after clicking email reset link) */}
+              {authStep === 'new_password' && (
+                <form onSubmit={handleSetNewPassword} style={styles.form}>
+                  <p style={styles.modalSubtitle}>Choose a new password for your account.</p>
+                  <input
+                    type="password"
+                    placeholder="New password (min 8 characters)"
+                    required
+                    minLength={8}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    style={styles.input}
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm new password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    style={styles.input}
+                  />
+                  <button type="submit" disabled={authLoading} style={styles.submitBtn}>
+                    {authLoading ? 'Saving…' : 'Set Password'}
+                  </button>
+                </form>
+              )}
+
               {authError && <p style={styles.errorText}>{authError}</p>}
 
-              <div style={styles.toggleModeBlock}>
-                {authMode === 'signin' ? (
-                  <p>Don't have an account? <span style={styles.toggleLink} onClick={() => openModal('signup')}>Sign up here</span></p>
-                ) : (
-                  <p>Already have an account? <span style={styles.toggleLink} onClick={() => openModal('signin')}>Sign in here</span></p>
-                )}
-              </div>
+              {/* Sign in / Sign up toggle — only relevant on the credentials step */}
+              {authStep === 'credentials' && (
+                <div style={styles.toggleModeBlock}>
+                  {authMode === 'signin' ? (
+                    <p>Don't have an account?{' '}
+                      <span style={styles.toggleLink} onClick={() => openModal('signup')}>Sign up here</span>
+                    </p>
+                  ) : (
+                    <p>Already have an account?{' '}
+                      <span style={styles.toggleLink} onClick={() => openModal('signin')}>Sign in here</span>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
