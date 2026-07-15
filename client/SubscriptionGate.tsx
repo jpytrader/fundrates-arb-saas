@@ -135,12 +135,9 @@ export function SubscriptionGate({
     setAuthError(null);
     setAuthLoading(true);
     try {
-      const { error } = await executeGlobalSignOut(supabase); // default: local (current tab/device)
-      if (error) {
-        throw new Error(error.message);
-      }
+      await executeGlobalSignOut(supabase);
     } catch (err) {
-      setAuthError('[SubscriptionGate] Unexpected error during logout:', err);
+      setAuthError('[SubscriptionGate] Unexpected error during logout: ' + String(err));
     } finally {
       setAuthLoading(false);
     }
