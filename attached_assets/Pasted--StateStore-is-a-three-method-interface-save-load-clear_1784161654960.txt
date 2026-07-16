@@ -1,0 +1,138 @@
+
+StateStore is a three-method interface: save, load, clear. A SupabaseStateStore implements it by upsert-ing a JSONB row keyed on tenant_id:
+
+CREATE TABLE arb_states (
+  tenant_id   UUID PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+  state       JSONB        NOT NULL,
+  updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+class SupabaseStateStore implements StateStore {
+  constructor(private supabase: SupabaseClient, private tenantId: string) {}
+  async save(state: PersistedState): Promise<void> {
+    await this.supabase.from('arb_states').upsert({
+      tenant_id: this.tenantId,
+      state,
+      updated_at: new Date().toISOString(),
+    });
+  }
+  async load(): Promise<PersistedState | null> {
+    const { data } = await this.supabase
+      .from('arb_states')
+      .select('state')
+      .eq('tenant_id', this.tenantId)
+      .maybeSingle();
+    return (data?.state as PersistedState) ?? null;
+  }
+  async clear(): Promise<void> {
+    await this.supabase.from('arb_states')
+      .delete().eq('tenant_id', this.tenantId);
+  }
+}
+
+Each tenant gets exactly one row. The state column holds the full PersistedState — positions, config, PnL history, phase, execution costs — serialised exactly as persistNow() builds it.
+
+Engine instantiation per tenant
+The harness boot sequence, once per tenant that has an active strategy:
+
+const store  = new SupabaseStateStore(supabase, tenant.id);
+const adapter = buildAdapter(tenant.exchange, tenant.apiCredentials); // keyed from secrets table
+const engine  = new ArbEngine(tenant.config, adapter, store);
+await engine.restore();     // load() → hydrate positions / PnL / config delta
+engine.start();             // scan timer begins
+
+restore() reads the Supabase row, filters for open/rebalancing positions, and backfills lastRebalancedAt if missing (the backward-compat logic already in core). Phase is not restored — the engine always starts scanning fresh. isRunning in the snapshot is used only as a hint for the harness to decide whether to auto-start.
+
+Bug 1 in the cloud harness — phase stuck in 'exiting' corrupts Supabase and dashboards
+update() fires every registered state listener synchronously. In the SaaS harness a listener typically syncs partial state back to a presence table or pushes over a WebSocket:
+
+engine.subscribe(state => {
+  // push to tenant's Realtime channel — drives the operator dashboard
+  supabase.channel(`tenant:${tenantId}`).send({ type: 'broadcast', event: 'state', payload: state });
+});
+
+Without the fix, a failed close leaves phase: 'exiting' in memory. Every subsequent scan cycle calls update() with new funding totals, each broadcast re-propagating phase: 'exiting'. The debounced schedulePersist() inside the scan path eventually writes phase: 'exiting' to Supabase. The operator dashboard shows the engine permanently stuck. A harness health-check query (WHERE state->>'phase' != 'exiting') would mark the tenant's engine as degraded.
+
+With the fix, the catch block immediately broadcasts phase: 'monitoring' and the engine is visibly healthy on the next scan cycle's persist. The error is surfaced in errors[], which a separate listener can route to the tenant's alert channel.
+
+Bug 3 in the cloud harness — phase written correctly on stop()
+persistNow() builds the PersistedState snapshot synchronously before the first await:
+
+private async persistNow() {
+  if (!this.store) return;
+  const snapshot: PersistedState = {
+    ...
+    phase: this.state.phase,      // ← captured here, synchronously
+    isRunning: this.scanTimer !== null,
+  };
+  try {
+    await this.store.save(snapshot);  // ← first await: Supabase upsert
+  } catch { }
+}
+
+Before the fix, in a stop() call the capture order was:
+
+persistNow() invoked — snapshot built with phase: 'monitoring'
+update({ phase: 'idle' }) — memory updated, but snapshot already sent to Supabase
+The Supabase row ends up with state->>'phase' = 'monitoring' and isRunning = false — a contradictory pair. A harness that queries for stopped tenants (isRunning = false AND phase != 'idle') would either mis-classify the tenant or require defensive filtering.
+
+After the fix, update({ phase: 'idle' }) runs first, then persistNow() captures 'idle'. The upsert writes a coherent row: phase: 'idle', isRunning: false. On next boot restore() sees a clean, stopped snapshot.
+
+Bug 5 in the cloud harness — SIGTERM drains all tenant state before pod exits
+The harness runs multiple tenant engines in one Node.js process (or one per worker, depending on scale). On a rolling deploy or scheduled restart:
+
+// harness shutdown handler — before the fix
+process.on('SIGTERM', () => {
+  for (const engine of tenantEngines.values()) {
+    engine.stop();        // fire-and-forget Promise — process.exit may arrive before upsert resolves
+  }
+  process.exit(0);
+});
+
+store.save() is a Supabase HTTP call — typically 50–200 ms round-trip. Node's process.exit() tears down the event loop immediately, abandoning any unresolved Promises. Tenants whose debounce timer hadn't fired in the last 5 seconds lose all state updates since the last scheduled persist.
+
+After the fix:
+
+process.on('SIGTERM', async () => {
+  await Promise.all([...tenantEngines.values()].map(e => e.stop()));
+  // every tenant's Supabase row is now flushed with phase:'idle'
+  process.exit(0);
+});
+
+stop() awaits persistNow() which awaits store.save() which awaits the Supabase upsert. Promise.all fans all tenant flushes out concurrently (N parallel HTTP calls) rather than sequentially, so the total shutdown time is one round-trip regardless of tenant count. The process exits only after every row is committed.
+
+This also composes correctly with Kubernetes terminationGracePeriodSeconds: the pod's grace window is now predictably consumed by the Supabase writes, not by an invisible debounce timer.
+
+Bug 4 in the cloud harness — concurrent API calls cannot issue duplicate close orders
+In a SaaS context closeAllPositions() is exposed over HTTP, typically called from a dashboard button or a risk-management webhook. Two concurrent calls for the same tenant — a double-click, a webhook retry, or a load-balanced duplicate — can arrive within the same event-loop turn window:
+
+T=0  API call A: closeAllPositions() → ids = ['pos-1', 'pos-2']
+T=0  API call B: closeAllPositions() → ids = ['pos-1', 'pos-2']  (stale snapshot, same filter)
+T=50ms  A closes pos-1 → state mutates to status:'closed'
+T=50ms  B reaches pos-1 iteration → old code: calls closePosition(pos-1) again → duplicate live order
+
+With the live-status re-check:
+
+const live = this.state.positions.find(p => p.id === id);
+if (live?.status !== 'open') continue;
+
+Call B's loop reaches pos-1, finds status: 'closed', and skips. No duplicate order reaches the exchange.
+
+The same guard protects against the scan timer's checkExits() firing concurrently. checkExits() can trigger an autonomous close (funding rate reversal, stop-loss breach) during the await closePosition(...) gap inside closeAllPositions(). Without the re-check a position closed by the scan cycle would still be visited by the manual-close loop — double-close on a live exchange. With the re-check the loop sees the updated status and continues cleanly.
+
+The barrel exports and WebSocket classes
+HyperliquidWebSocket and OKXWebSocket are now barrel-importable. In the SaaS harness these power real-time order-book and funding-rate streaming without polling:
+
+import { HyperliquidWebSocket, OKXWebSocket } from '@jpytrader/fundrates-arb';
+const ws = new HyperliquidWebSocket({ onFundingRate: (pair, rate) => {
+  // push to a tenant-specific Redis channel; engine picks up on next scan
+}});
+ws.connect();
+
+Because these were missing from the barrel, any harness importing the package and building to a bundled output (esbuild, Rollup) would silently produce undefined for these classes — only discoverable at runtime. The exports.test.ts suite now catches any future regression before publication.
+
+LocalStorageStore in the cloud context
+LocalStorageStore has no role server-side — it targets browser localStorage for the self-hosted React component. In the cloud harness it is replaced entirely by SupabaseStateStore. The 8 new tests cover all the edge cases a browser-based operator would hit (stale version discard, legacy key migration, corrupted JSON) and ensure the shared StateStore contract behaves identically regardless of which backend is injected — the engine never knows which it is talking to.
+
+clearPersistedState in the cloud harness
+engine.clearPersistedState() proxies to store.clear(), which deletes the tenant's Supabase row. In a SaaS context this is the "factory reset" for a tenant — exposed only to admins. Because the method is now documented in the README's methods table, harness builders know it exists and can wire it to an admin endpoint rather than issuing raw Supabase deletes that bypass any future audit logging the engine might add.
