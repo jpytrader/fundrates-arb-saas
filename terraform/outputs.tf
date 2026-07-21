@@ -78,6 +78,12 @@ output "fra_cron_secret" {
   sensitive   = true
 }
 
+output "pgsodium_root_key" {
+  description = "64-char hex pgsodium root encryption key — injected into supabase-db at boot. Keep this secret; losing it makes Vault secrets unreadable."
+  value       = random_id.pgsodium_root_key.hex
+  sensitive   = true
+}
+
 # ─── Post-apply summary ───────────────────────────────────────────────────────
 output "next_steps" {
   description = "Post-apply checklist"

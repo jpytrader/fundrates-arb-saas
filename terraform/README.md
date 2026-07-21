@@ -148,6 +148,60 @@ Visit `https://status.<domain>` and create the first admin account. Add monitors
 
 ---
 
+## pgsodium root key rotation
+
+Supabase Vault (`vault.create_secret` / `vault.update_secret`) depends on the **pgsodium** extension, which encrypts secrets at rest using a root key. On `supabase.com`-hosted projects this key is pre-configured automatically. On a self-hosted deploy it must be provided explicitly — without it, Vault RPCs either fail silently or store secrets in plaintext, causing the `rotate-exchange-key` edge function to return HTTP 500.
+
+### How it is set up
+
+Terraform generates a 64-char random hex root key (`random_id.pgsodium_root_key`) and:
+
+1. **Writes it to disk** at `/data/supabase/volumes/db/pgsodium_root.key` (mode `0600`) via cloud-init `write_files`.
+2. **Injects it into the `supabase-db` container** via the `PGSODIUM_ROOT_KEY` environment variable in `supabase-compose.yaml.tpl`.
+
+The key is generated once on `terraform apply` and stored in `terraform.tfstate`. Retrieve it with:
+
+```bash
+terraform output -raw pgsodium_root_key
+```
+
+### Rotating the pgsodium root key independently
+
+> ⚠️ Rotating the pgsodium root key re-encrypts **all** data in `vault.secrets`. Do this during a maintenance window.
+
+1. Stop the Vault-dependent edge functions to prevent reads mid-rotation:
+   ```bash
+   docker compose -f /data/supabase/docker-compose.yml stop functions
+   ```
+
+2. Update the key file on the host:
+   ```bash
+   NEW_KEY=$(openssl rand -hex 32)
+   echo "$NEW_KEY" | sudo tee /data/supabase/volumes/db/pgsodium_root.key
+   sudo chmod 600 /data/supabase/volumes/db/pgsodium_root.key
+   ```
+
+3. Update the env var in `/data/supabase/docker-compose.yml` (`PGSODIUM_ROOT_KEY`) and restart the DB:
+   ```bash
+   docker compose -f /data/supabase/docker-compose.yml up -d --no-deps --force-recreate db
+   ```
+
+4. Confirm pgsodium is working with a round-trip smoke test (run as `postgres` inside the container):
+   ```sql
+   SELECT vault.create_secret('smoke-test-value', 'smoke-test');
+   SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'smoke-test';
+   DELETE FROM vault.secrets WHERE name = 'smoke-test';
+   ```
+
+5. Restart the functions service:
+   ```bash
+   docker compose -f /data/supabase/docker-compose.yml up -d --no-deps --force-recreate functions
+   ```
+
+6. Store the new key value externally (password manager / secrets store) — it is **not** persisted back to `terraform.tfstate` unless you run `terraform apply` again after updating the resource.
+
+---
+
 ## Architecture notes
 
 ### pg_cron → fra-engine (engine tick)

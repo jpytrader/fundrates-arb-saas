@@ -54,6 +54,7 @@ services:
       POSTGRES_DB: postgres
       JWT_SECRET: ${jwt_secret}
       JWT_EXP: 3600
+      PGSODIUM_ROOT_KEY: ${pgsodium_root_key}
     volumes:
       - db-data:/var/lib/postgresql/data
       - /data/supabase/volumes/db/init:/docker-entrypoint-initdb.d:z

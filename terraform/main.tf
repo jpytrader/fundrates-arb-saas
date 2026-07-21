@@ -24,6 +24,10 @@ resource "random_password" "fra_cron_secret" {
   special = false
 }
 
+resource "random_id" "pgsodium_root_key" {
+  byte_length = 32   # 64-char lowercase hex; pgsodium root encryption key
+}
+
 # ─── Auto-resolve Ubuntu 22.04 ARM image when OCID not supplied ───────────────
 data "oci_core_images" "ubuntu_arm" {
   count                    = var.ubuntu_image_ocid == "" ? 1 : 0
@@ -54,6 +58,7 @@ locals {
     dashboard_password = random_password.dashboard_password.result
     jwt_secret         = random_password.jwt_secret.result
     fra_cron_secret    = random_password.fra_cron_secret.result
+    pgsodium_root_key  = random_id.pgsodium_root_key.hex
     api_url            = local.api_url
     studio_url         = local.studio_url
     storage_namespace  = module.objectstorage.namespace
@@ -125,6 +130,7 @@ module "compute" {
     jwt_secret         = random_password.jwt_secret.result
     fra_cron_secret    = random_password.fra_cron_secret.result
     postgres_password  = random_password.postgres_password.result
+    pgsodium_root_key  = random_id.pgsodium_root_key.hex
     api_url            = local.api_url
     smtp_host          = module.email.smtp_host
     smtp_port          = "587"
