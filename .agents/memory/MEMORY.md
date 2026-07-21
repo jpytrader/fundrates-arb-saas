@@ -1,0 +1,2 @@
+- [CI/CD pipeline](ci-cd-pipeline.md) — dev→test→main branch flow, Supabase-first then Terraform ordering, OCI secret guard, state cache pattern.
+- [Post-merge setup](post-merge-setup.md) — bun install only; build step omitted because @jpytrader/fundrates-arb requires CI secrets unavailable in the post-merge environment.
