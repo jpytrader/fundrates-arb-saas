@@ -84,6 +84,13 @@ output "pgsodium_root_key" {
   sensitive   = true
 }
 
+# ─── Stripe ───────────────────────────────────────────────────────────────────
+output "stripe_webhook_secret" {
+  description = "Stripe webhook signing secret for the self-hosted endpoint. Inject as STRIPE_WEBHOOK_SECRET in the edge-functions environment. Only populated when stripe_api_key is set."
+  value       = local.stripe_webhook_secret
+  sensitive   = true
+}
+
 # ─── Post-apply summary ───────────────────────────────────────────────────────
 output "next_steps" {
   description = "Post-apply checklist"
@@ -96,5 +103,12 @@ output "next_steps" {
     4. Deploy the fra-engine edge function:
          supabase functions deploy fra-engine --project-ref https://api.${var.domain_name}
     5. Retrieve sensitive values:  terraform output -json | jq '{grafana_password,dashboard_password,fra_cron_secret}'
+    6. Stripe webhooks:
+         If stripe_api_key was set, the webhook endpoint is already registered at
+           https://api.${var.domain_name}/functions/v1/stripe-webhook
+         and STRIPE_WEBHOOK_SECRET is injected into the supabase-functions container.
+         Retrieve the secret with:  terraform output -raw stripe_webhook_secret
+         If stripe_api_key was NOT set, register the endpoint manually in the Stripe
+         Dashboard (see README § "Stripe webhook" for step-by-step instructions).
   EOT
 }

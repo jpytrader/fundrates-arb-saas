@@ -253,6 +253,7 @@ services:
       SUPABASE_DB_URL: postgresql://postgres:${postgres_password}@db:5432/postgres
       VERIFY_JWT: "false"
       FRA_CRON_SECRET: ${fra_cron_secret}
+      STRIPE_WEBHOOK_SECRET: ${stripe_webhook_secret}
     volumes:
       - functions-data:/home/deno/functions:z
     command:

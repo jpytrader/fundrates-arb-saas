@@ -78,6 +78,21 @@ variable "supabase_studio_port" {
   default     = 3000
 }
 
+# ─── Stripe ───────────────────────────────────────────────────────────────────
+variable "stripe_api_key" {
+  description = <<-EOT
+    Stripe secret API key (sk_live_... or sk_test_...).
+    When set, Terraform creates a Stripe webhook endpoint resource pointing at
+    https://api.<domain>/functions/v1/stripe-webhook and exports the signing
+    secret as the stripe_webhook_secret output.
+    Leave blank to skip Stripe webhook management (register the endpoint
+    manually in the Stripe Dashboard instead — see README post-apply checklist).
+  EOT
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
 # ─── Tags ─────────────────────────────────────────────────────────────────────
 variable "project_name" {
   description = "Short name used in OCI resource display names and freeform tags"

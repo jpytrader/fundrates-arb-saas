@@ -18,6 +18,10 @@ terraform {
       source  = "hashicorp/local"
       version = ">= 2.4"
     }
+    stripe = {
+      source  = "lukasaron/stripe"
+      version = ">= 1.8"
+    }
   }
 }
 

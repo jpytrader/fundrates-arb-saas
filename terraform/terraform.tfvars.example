@@ -45,5 +45,12 @@ letsencrypt_email = "ops@example.com"
 # Restrict SSH access to your static IP in production, e.g. "203.0.113.10/32"
 admin_cidr = "0.0.0.0/0"
 
+# ─── Stripe ───────────────────────────────────────────────────────────────────
+# Stripe secret API key. When set, Terraform creates a webhook endpoint resource
+# pointing at https://api.<domain>/functions/v1/stripe-webhook and writes the
+# signing secret into the supabase-functions container environment automatically.
+# Leave blank to manage the webhook endpoint manually via the Stripe Dashboard.
+# stripe_api_key = "sk_live_..."
+
 # ─── Tags ─────────────────────────────────────────────────────────────────────
 project_name = "fundrates-arb"

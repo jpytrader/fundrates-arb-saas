@@ -139,7 +139,56 @@ Two datasources are pre-configured:
 
 Import a dashboard from [grafana.com/grafana/dashboards](https://grafana.com/grafana/dashboards) for cAdvisor (ID 14282) and postgres-exporter (ID 9628), or build a custom one querying `fra_engine_metrics`.
 
-### 6. Uptime Kuma
+### 6. Stripe webhook
+
+#### Option A — Terraform-managed (recommended)
+
+Set `stripe_api_key` in `terraform.tfvars` before running `terraform apply`. Terraform will:
+
+1. Create a Stripe webhook endpoint pointing at `https://api.<domain>/functions/v1/stripe-webhook`.
+2. Write the signing secret directly into the `STRIPE_WEBHOOK_SECRET` environment variable of the `supabase-functions` container via `supabase-compose.yaml`.
+
+Retrieve the signing secret any time with:
+
+```bash
+terraform output -raw stripe_webhook_secret
+```
+
+Subscribed events managed by Terraform:
+
+| Event | Trigger |
+|---|---|
+| `customer.subscription.created` | New subscription |
+| `customer.subscription.updated` | Plan change / trial end |
+| `customer.subscription.deleted` | Cancellation |
+| `invoice.payment_succeeded` | Successful renewal |
+| `invoice.payment_failed` | Failed payment |
+
+#### Option B — Manual Stripe Dashboard redirect
+
+If you left `stripe_api_key` blank, redirect the existing webhook endpoint yourself:
+
+1. Open [dashboard.stripe.com/webhooks](https://dashboard.stripe.com/webhooks).
+2. Find the old endpoint pointing at `https://<project-ref>.supabase.co/functions/v1/stripe-webhook`.
+3. Click **Edit** → update the URL to `https://api.<domain>/functions/v1/stripe-webhook`.
+4. Copy the **Signing secret** shown on the endpoint detail page.
+5. SSH into the instance and update the running container:
+
+```bash
+# Replace <whsec_...> with the signing secret from the Stripe Dashboard
+docker compose -f /data/supabase/docker-compose.yml \
+  exec functions \
+  sh -c 'echo "STRIPE_WEBHOOK_SECRET=<whsec_...>" >> /etc/environment'
+
+# Or edit /data/supabase/docker-compose.yml → functions → environment,
+# then restart the service:
+docker compose -f /data/supabase/docker-compose.yml \
+  up -d --no-deps --force-recreate functions
+```
+
+6. Send a test webhook from the Stripe Dashboard and confirm the edge function returns HTTP 200.
+
+### 7. Uptime Kuma
 Visit `https://status.<domain>` and create the first admin account. Add monitors for:
 - `https://api.<domain>/health`
 - `https://studio.<domain>`

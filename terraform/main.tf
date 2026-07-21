@@ -51,27 +51,35 @@ locals {
   api_url    = "https://api.${var.domain_name}"
   studio_url = "https://studio.${var.domain_name}"
 
+  # Stripe webhook signing secret — empty string when stripe_api_key is not set
+  stripe_webhook_secret = (
+    var.stripe_api_key != ""
+    ? stripe_webhook_endpoint.self_hosted[0].secret
+    : ""
+  )
+
   # ── Rendered sub-templates (passed as string variables into cloud-init) ──────
   supabase_compose = templatefile("${path.module}/templates/supabase-compose.yaml.tpl", {
-    domain_name        = var.domain_name
-    postgres_password  = random_password.postgres_password.result
-    dashboard_password = random_password.dashboard_password.result
-    jwt_secret         = random_password.jwt_secret.result
-    fra_cron_secret    = random_password.fra_cron_secret.result
-    pgsodium_root_key  = random_id.pgsodium_root_key.hex
-    api_url            = local.api_url
-    studio_url         = local.studio_url
-    storage_namespace  = module.objectstorage.namespace
-    storage_bucket     = module.objectstorage.bucket_name
-    storage_region     = var.region
-    storage_access_key = module.objectstorage.access_key
-    storage_secret_key = module.objectstorage.secret_key
-    smtp_host          = module.email.smtp_host
-    smtp_port          = "587"
-    smtp_user          = module.email.smtp_username
-    smtp_password      = module.email.smtp_password
-    smtp_sender        = module.email.approved_sender_email
-    letsencrypt_email  = var.letsencrypt_email
+    domain_name           = var.domain_name
+    postgres_password     = random_password.postgres_password.result
+    dashboard_password    = random_password.dashboard_password.result
+    jwt_secret            = random_password.jwt_secret.result
+    fra_cron_secret       = random_password.fra_cron_secret.result
+    stripe_webhook_secret = local.stripe_webhook_secret
+    pgsodium_root_key     = random_id.pgsodium_root_key.hex
+    api_url               = local.api_url
+    studio_url            = local.studio_url
+    storage_namespace     = module.objectstorage.namespace
+    storage_bucket        = module.objectstorage.bucket_name
+    storage_region        = var.region
+    storage_access_key    = module.objectstorage.access_key
+    storage_secret_key    = module.objectstorage.secret_key
+    smtp_host             = module.email.smtp_host
+    smtp_port             = "587"
+    smtp_user             = module.email.smtp_username
+    smtp_password         = module.email.smtp_password
+    smtp_sender           = module.email.approved_sender_email
+    letsencrypt_email     = var.letsencrypt_email
   })
 
   monitoring_compose = templatefile("${path.module}/templates/monitoring-compose.yaml.tpl", {
@@ -156,8 +164,34 @@ module "compute" {
 module "loadbalancer" {
   source = "./modules/loadbalancer"
 
-  compartment_id     = var.compartment_id
-  subnet_id          = module.network.public_subnet_id
+  compartment_id      = var.compartment_id
+  subnet_id           = module.network.public_subnet_id
   instance_private_ip = module.compute.instance_private_ip
-  project_name       = var.project_name
+  project_name        = var.project_name
+}
+
+# ─── Stripe ───────────────────────────────────────────────────────────────────
+# Configures the Stripe webhook endpoint to point at the self-hosted API.
+# Only created when stripe_api_key is set in terraform.tfvars.
+# The signing secret is exposed as the stripe_webhook_secret output and
+# injected into the supabase-functions container via STRIPE_WEBHOOK_SECRET.
+
+provider "stripe" {
+  api_key = var.stripe_api_key
+}
+
+resource "stripe_webhook_endpoint" "self_hosted" {
+  count = var.stripe_api_key != "" ? 1 : 0
+
+  url = "https://api.${var.domain_name}/functions/v1/stripe-webhook"
+
+  enabled_events = [
+    "customer.subscription.created",
+    "customer.subscription.updated",
+    "customer.subscription.deleted",
+    "invoice.payment_succeeded",
+    "invoice.payment_failed",
+  ]
+
+  description = "Self-hosted Supabase edge function — ${var.domain_name}"
 }
