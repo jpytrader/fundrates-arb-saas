@@ -297,6 +297,27 @@ write_files:
       [Install]
       WantedBy=timers.target
 
+  # ── App migrations (base64 to avoid YAML special-character issues) ────────────
+  - path: /data/supabase/migrations/0001_init.sql
+    encoding: b64
+    permissions: '0640'
+    content: ${base64encode(migration_0001)}
+
+  - path: /data/supabase/migrations/0002_subscriptions.sql
+    encoding: b64
+    permissions: '0640'
+    content: ${base64encode(migration_0002)}
+
+  - path: /data/supabase/migrations/0003_vault_admin.sql
+    encoding: b64
+    permissions: '0640'
+    content: ${base64encode(migration_0003)}
+
+  - path: /data/supabase/migrations/0004_billing_resilience.sql
+    encoding: b64
+    permissions: '0640'
+    content: ${base64encode(migration_0004)}
+
   # ── Supabase docker-compose (rendered by Terraform, base64 to avoid YAML issues)
   - path: /data/supabase/docker-compose.yml
     encoding: b64
@@ -327,6 +348,7 @@ runcmd:
     mkdir -p \
       /data/supabase/db \
       /data/supabase/functions \
+      /data/supabase/migrations \
       /data/supabase/volumes/api \
       /data/supabase/volumes/db/init \
       /data/monitoring/uptime-kuma \
@@ -400,7 +422,37 @@ runcmd:
       sleep 10
     done
 
-  # ── 11. Enable pg_cron + pg_net extensions and schedule fra-engine tick ─────
+  # ── 11. Apply app migrations (idempotent — safe on instance restart) ─────────
+  - |
+    # Create migration tracking table if it does not already exist
+    docker exec -i supabase-db psql -U postgres << 'ENDSQL'
+    CREATE TABLE IF NOT EXISTS public._fra_migrations (
+      name       TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    ENDSQL
+
+    for migration in \
+        0001_init.sql \
+        0002_subscriptions.sql \
+        0003_vault_admin.sql \
+        0004_billing_resilience.sql; do
+      APPLIED=$(docker exec supabase-db psql -U postgres -tAc \
+        "SELECT COUNT(*) FROM public._fra_migrations WHERE name = '$migration'" \
+        2>/dev/null || echo 0)
+      if [ "$APPLIED" = "0" ]; then
+        echo "=== Applying migration $migration ==="
+        docker exec -i supabase-db psql -U postgres \
+          < /data/supabase/migrations/$migration
+        docker exec supabase-db psql -U postgres -c \
+          "INSERT INTO public._fra_migrations(name) VALUES ('$migration') ON CONFLICT DO NOTHING"
+        echo "=== Migration $migration applied ==="
+      else
+        echo "=== Migration $migration already applied, skipping ==="
+      fi
+    done
+
+  # ── 12. Enable pg_cron + pg_net extensions and schedule fra-engine tick ─────
   - |
     cat > /tmp/fra-pgcron.sql << ENDSQL
     CREATE EXTENSION IF NOT EXISTS pg_cron;
@@ -421,15 +473,15 @@ runcmd:
     docker exec -i supabase-db psql -U postgres < /tmp/fra-pgcron.sql
     rm -f /tmp/fra-pgcron.sql
 
-  # ── 12. Start monitoring stack ──────────────────────────────────────────────
+  # ── 13. Start monitoring stack ──────────────────────────────────────────────
   - docker compose -f /data/monitoring/docker-compose.yml up -d
 
-  # ── 13. Enable watchdog systemd timer ───────────────────────────────────────
+  # ── 14. Enable watchdog systemd timer ───────────────────────────────────────
   - systemctl daemon-reload
   - systemctl enable fra-watchdog.timer
   - systemctl start fra-watchdog.timer
 
-  # ── 14. Signal completion ───────────────────────────────────────────────────
+  # ── 15. Signal completion ───────────────────────────────────────────────────
   - |
     echo "=== FRA cloud-init complete $(date) ===" | \
       tee /data/cloud-init-complete.txt
@@ -441,5 +493,6 @@ final_message: |
     2. Register the Coolify admin account at https://coolify.${domain_name}
     3. Deploy the fra-engine edge function:
          supabase functions deploy fra-engine --project-ref https://api.${domain_name}
-    4. Apply app migrations (0001-0004) via supabase CLI or Studio SQL editor.
-    5. Import a Grafana dashboard for fra_engine_metrics at https://metrics.${domain_name}
+    4. Import a Grafana dashboard for fra_engine_metrics at https://metrics.${domain_name}
+  Note: App migrations (0001-0004) were applied automatically during boot.
+        Re-check /var/log/cloud-init-output.log if any migration step failed.

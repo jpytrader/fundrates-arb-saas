@@ -83,6 +83,12 @@ locals {
 
   # Watchdog bash script — read from file so cloud-init receives it base64-encoded
   watchdog_script = file("${path.module}/templates/watchdog.service.tpl")
+
+  # App migrations — read from file so cloud-init can write and apply them
+  migration_0001 = file("${path.module}/../migrations/0001_init.sql")
+  migration_0002 = file("${path.module}/../migrations/0002_subscriptions.sql")
+  migration_0003 = file("${path.module}/../migrations/0003_vault_admin.sql")
+  migration_0004 = file("${path.module}/../migrations/0004_billing_resilience.sql")
 }
 
 # ─── Modules ──────────────────────────────────────────────────────────────────
@@ -140,6 +146,10 @@ module "compute" {
     supabase_compose   = local.supabase_compose
     monitoring_compose = local.monitoring_compose
     watchdog_script    = local.watchdog_script
+    migration_0001     = local.migration_0001
+    migration_0002     = local.migration_0002
+    migration_0003     = local.migration_0003
+    migration_0004     = local.migration_0004
   }))
 }
 
