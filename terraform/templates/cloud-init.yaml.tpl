@@ -424,6 +424,7 @@ runcmd:
 
   # ── 11. Apply app migrations (idempotent — safe on instance restart) ─────────
   - |
+    set -euo pipefail
     # Create migration tracking table if it does not already exist
     docker exec -i supabase-db psql -U postgres << 'ENDSQL'
     CREATE TABLE IF NOT EXISTS public._fra_migrations (
@@ -442,11 +443,20 @@ runcmd:
         2>/dev/null || echo 0)
       if [ "$APPLIED" = "0" ]; then
         echo "=== Applying migration $migration ==="
-        docker exec -i supabase-db psql -U postgres \
-          < /data/supabase/migrations/$migration
-        docker exec supabase-db psql -U postgres -c \
-          "INSERT INTO public._fra_migrations(name) VALUES ('$migration') ON CONFLICT DO NOTHING"
-        echo "=== Migration $migration applied ==="
+        # -v ON_ERROR_STOP=1: abort immediately on any SQL error so a partial
+        # failure cannot leave the DB in a half-applied state.  Each migration
+        # is wrapped in BEGIN/COMMIT so the failure rolls back the whole file.
+        if docker exec -i supabase-db \
+            psql -U postgres -v ON_ERROR_STOP=1 \
+            < /data/supabase/migrations/$migration; then
+          docker exec supabase-db psql -U postgres -c \
+            "INSERT INTO public._fra_migrations(name) VALUES ('$migration') ON CONFLICT DO NOTHING"
+          echo "=== Migration $migration applied ==="
+        else
+          echo "ERROR: migration $migration failed — aborting boot sequence." >&2
+          echo "Check /var/log/cloud-init-output.log for the full psql error." >&2
+          exit 1
+        fi
       else
         echo "=== Migration $migration already applied, skipping ==="
       fi

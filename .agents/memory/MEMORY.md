@@ -1,2 +1,4 @@
 - [CI/CD pipeline](ci-cd-pipeline.md) — dev→test→main branch flow, Supabase-first then Terraform ordering, OCI secret guard, state cache pattern.
 - [Post-merge setup](post-merge-setup.md) — bun install only; build step omitted because @jpytrader/fundrates-arb requires CI secrets unavailable in the post-merge environment.
+- [Migration atomicity](migration-atomicity.md) — all four migrations now have BEGIN/COMMIT + \set ON_ERROR_STOP on; cloud-init loop exits on first failure and never marks a failed migration as applied.
+- [Terraform dry-run](terraform-dry-run.md) — terraform/ci.tfvars holds dummy placeholder values; scripts/tf-validate.sh + validate.yml run terraform init -backend=false + validate on every push without real OCI credentials.
