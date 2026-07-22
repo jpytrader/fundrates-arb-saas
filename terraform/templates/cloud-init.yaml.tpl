@@ -461,9 +461,18 @@ runcmd:
         echo "=== Migration $migration already applied, skipping ==="
       fi
     done
+    # Write sentinel so step 12 knows all migrations succeeded
+    touch /tmp/fra-migrations-ok
+    echo "=== All migrations applied successfully ==="
 
   # ── 12. Enable pg_cron + pg_net extensions and schedule fra-engine tick ─────
   - |
+    # Gate: refuse to set up pg_cron if the migration step did not complete
+    if [ ! -f /tmp/fra-migrations-ok ]; then
+      echo "ERROR: /tmp/fra-migrations-ok not found — migrations did not finish." >&2
+      echo "Skipping pg_cron setup to avoid scheduling against a broken schema." >&2
+      exit 1
+    fi
     cat > /tmp/fra-pgcron.sql << ENDSQL
     CREATE EXTENSION IF NOT EXISTS pg_cron;
     CREATE EXTENSION IF NOT EXISTS pg_net;
