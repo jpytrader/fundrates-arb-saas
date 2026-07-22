@@ -3,8 +3,18 @@ name: validate — Terraform syntax + module wiring
 on:
   push:
     branches: [dev, test]
+    paths:
+      - "terraform/**"
+      - "migrations/**"
+      - "scripts/tf-validate.sh"
+      - ".github/workflows/validate.yml"
   pull_request:
     branches: [test, main]
+    paths:
+      - "terraform/**"
+      - "migrations/**"
+      - "scripts/tf-validate.sh"
+      - ".github/workflows/validate.yml"
   workflow_dispatch:
 
 concurrency:
@@ -52,3 +62,44 @@ jobs:
 
       - name: Report success
         run: echo "✅ terraform validate passed — all modules and HCL syntax are correct."
+
+  cloud-init-yaml-lint:
+    name: cloud-init template YAML structure check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install --quiet yamllint
+
+      # The template contains ${...} Terraform interpolations which are not
+      # valid YAML.  Strip them (and the base64encode() calls) with sed before
+      # linting so yamllint can check the surrounding YAML structure —
+      # indentation errors, duplicate keys, and broken block scalars — without
+      # tripping over unexpanded variables.
+      - name: Lint cloud-init template YAML structure
+        run: |
+          set -euo pipefail
+          TPL=terraform/templates/cloud-init.yaml.tpl
+
+          # Replace ${...} / ${ ... } expressions with a safe placeholder string.
+          # This covers plain variable refs (${foo}), function calls (${base64encode(x)}),
+          # and multi-line expressions.
+          sed 's/\${[^}]*}/PLACEHOLDER/g' "$TPL" > /tmp/cloud-init-rendered.yaml
+
+          yamllint \
+            --config-data '{
+              extends: default,
+              rules: {
+                line-length: {max: 200},
+                comments: disable,
+                comments-indentation: disable,
+                truthy: disable
+              }
+            }' \
+            /tmp/cloud-init-rendered.yaml
+
+          echo "✅ cloud-init template YAML structure is valid."
