@@ -1,0 +1,105 @@
+name: validate — Terraform syntax + module wiring
+
+on:
+  push:
+    branches: [dev, test]
+    paths:
+      - "terraform/**"
+      - "migrations/**"
+      - "scripts/tf-validate.sh"
+      - ".github/workflows/validate.yml"
+  pull_request:
+    branches: [test, main]
+    paths:
+      - "terraform/**"
+      - "migrations/**"
+      - "scripts/tf-validate.sh"
+      - ".github/workflows/validate.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform-validate:
+    name: Terraform validate (no credentials required)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.7"
+
+      # terraform init downloads providers; -backend=false skips remote state
+      # auth so no OCI/Stripe credentials are needed.
+      # terraform validate checks HCL syntax and module cross-references.
+      # ci.tfvars supplies syntactically-valid placeholder values for all
+      # required variables so the provider blocks parse correctly.
+      - name: Terraform init + validate
+        working-directory: terraform
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+        env:
+          # Supply required variable values via TF_VAR_ so no -var-file flag
+          # is needed (avoids issues if the runner clones without the file).
+          TF_VAR_tenancy_ocid:        "ocid1.tenancy.oc1..aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          TF_VAR_user_ocid:           "ocid1.user.oc1..aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          TF_VAR_fingerprint:         "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+          TF_VAR_private_key_path:    "/dev/null"
+          TF_VAR_region:              "ap-tokyo-1"
+          TF_VAR_compartment_id:      "ocid1.compartment.oc1..aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          TF_VAR_availability_domain: "RKlC:AP-TOKYO-1-AD-1"
+          TF_VAR_ssh_public_key:      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI000000000000000000000000000000000000000000000 ci@validate"
+          TF_VAR_domain_name:         "arb.example.com"
+          TF_VAR_letsencrypt_email:   "ci@example.com"
+
+      - name: Report success
+        run: echo "✅ terraform validate passed — all modules and HCL syntax are correct."
+
+  cloud-init-yaml-lint:
+    name: cloud-init template YAML structure check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install --quiet yamllint
+
+      # The template contains ${...} Terraform interpolations which are not
+      # valid YAML.  Strip them (and the base64encode() calls) with sed before
+      # linting so yamllint can check the surrounding YAML structure —
+      # indentation errors, duplicate keys, and broken block scalars — without
+      # tripping over unexpanded variables.
+      - name: Lint cloud-init template YAML structure
+        run: |
+          set -euo pipefail
+          TPL=terraform/templates/cloud-init.yaml.tpl
+
+          # Replace ${...} / ${ ... } expressions with a safe placeholder string.
+          # This covers plain variable refs (${foo}), function calls (${base64encode(x)}),
+          # and multi-line expressions.
+          sed 's/\${[^}]*}/PLACEHOLDER/g' "$TPL" > /tmp/cloud-init-rendered.yaml
+
+          yamllint \
+            --config-data '{
+              extends: default,
+              rules: {
+                line-length: {max: 200},
+                comments: disable,
+                comments-indentation: disable,
+                truthy: disable
+              }
+            }' \
+            /tmp/cloud-init-rendered.yaml
+
+          echo "✅ cloud-init template YAML structure is valid."

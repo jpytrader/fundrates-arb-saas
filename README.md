@@ -67,8 +67,14 @@ supabase-saas/
 
 1. **Install** — `cd supabase-saas && npm install`
 2. **Link Supabase project** — `supabase link --project-ref <ref>`
-3. **Apply operational schema** — `supabase db push migrations/0001_init.sql`
-4. **Apply billing schema** — `supabase db push migrations/0002_subscriptions.sql` (after installing the Stripe Sync Engine — see [`docs/BILLING.md`](./docs/BILLING.md))
+3. **Apply schema** — on a **self-hosted deploy** (via Terraform) all four migrations
+   (`0001_init.sql` → `0004_billing_resilience.sql`) are applied automatically during
+   first boot by cloud-init, in order, with idempotency protection. Check
+   `/var/log/cloud-init-output.log` on the instance if any migration fails.
+   For a **managed Supabase project** run them manually:
+   `supabase db push migrations/0001_init.sql` then
+   `supabase db push migrations/0002_subscriptions.sql` (after the Stripe Sync Engine —
+   see [`docs/BILLING.md`](./docs/BILLING.md)), and similarly for 0003 and 0004.
 5. **Deploy functions** — `supabase functions deploy fra-engine create-checkout create-portal-session`
 6. **Set secrets** — see [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) and [`docs/BILLING.md`](./docs/BILLING.md)
 7. **Drop the client component into your app** — see [`client/FundratesArb.tsx`](./client/FundratesArb.tsx)

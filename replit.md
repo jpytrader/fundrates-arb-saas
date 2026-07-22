@@ -224,7 +224,8 @@ supabase db push migrations/0002_subscriptions.sql   # after Stripe Sync Engine 
 supabase db push migrations/0003_vault_admin.sql
 supabase db push migrations/0004_billing_resilience.sql
 supabase functions deploy fra-engine create-checkout create-portal-session \
-  stripe-webhook-fra reconcile-subscriptions rotate-exchange-key revoke-exchange-key
+  stripe-webhook-fra reconcile-subscriptions rotate-exchange-key revoke-exchange-key \
+  close-all-positions admin-clear-state
 ```
 
 See `docs/DEPLOYMENT.md` and `docs/BILLING.md` for full steps including secrets, pg_cron scheduling, and Stripe webhook registration.

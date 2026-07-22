@@ -70,6 +70,7 @@ jobs:
           cp -r dist "$WORK/"
           [ -d "migrations" ] && cp -r migrations "$WORK/"
           [ -d "edge-functions" ] && cp -r edge-functions "$WORK/"
+          [ -d "terraform" ] && cp -r terraform "$WORK/"
           cp package*.json bun.lock* .npmrc "$WORK/" 2>/dev/null || true
           cp *.md "$WORK/" 2>/dev/null || true
 
@@ -318,6 +319,7 @@ jobs:
           cp -r $WORK/dist "$WORK/git_mount/"
           [ -d "$WORK/migrations" ] && cp -r $WORK/migrations "$WORK/git_mount/"
           [ -d "$WORK/edge-functions" ] && cp -r $WORK/edge-functions "$WORK/git_mount/"
+          [ -d "$WORK/terraform" ] && cp -r "$WORK/terraform" "$WORK/git_mount/"
           cp $WORK/package.json $WORK/package-lock.json bun.lock* $WORK/.npmrc "$WORK/git_mount/" 2>/dev/null || true
           cp $WORK/*.md "$WORK/git_mount/" 2>/dev/null || true
           
@@ -349,6 +351,7 @@ jobs:
             echo "**Orchestration & Services Automation Added:**" >> "$WORK/pr_description.md"
             echo "- Unified Multi-Stage \`Dockerfile\` added for complete schema/secret provisioning." >> "$WORK/pr_description.md"
             echo "- Standardized \`docker-compose.yml\` and \`railway.toml\` parity active." >> "$WORK/pr_description.md"
+            echo "- \`terraform/\` directory included — OCI self-hosted infra applied automatically on merge via \`main.yml\`." >> "$WORK/pr_description.md"
 
             echo "Generating automated production promotion Pull Request..."
             gh pr create \

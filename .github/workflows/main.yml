@@ -7,23 +7,152 @@ on:
 
 concurrency:
   group: saas-main
-  cancel-in-progress: false
+  cancel-in-progress: false   # Never cancel in-flight deploys
 
+# ─── Job 1: Supabase provisioning ────────────────────────────────────────────
+# Mirrors docker-entrypoint.sh: link → db:push → secrets → functions → cron.
+# Runs first so the application layer is fully live before infra is applied.
 jobs:
-  deploy:
+  provision-supabase:
+    name: Provision Supabase (migrations → functions → cron)
     runs-on: ubuntu-latest
     permissions:
       contents: read
     env:
-      GH_DEP_TOKEN: ${{ secrets.GH_DEP_TOKEN }}
+      SUPABASE_URL:               ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY:  ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ACCESS_TOKEN:      ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD:       ${{ secrets.SUPABASE_DB_PASSWORD }}
+      FRA_CRON_SECRET:            ${{ secrets.FRA_CRON_SECRET }}
+      STRIPE_SECRET_KEY:          ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET:      ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      STRIPE_WEBHOOK_SECRET_FRA:  ${{ secrets.STRIPE_WEBHOOK_SECRET_FRA }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install production dependencies
-        run: |
-          echo "Resolving final production node modules dependencies payload..."
-          # Validated package-lock.json is present and un-mutated for deployment execution
-          npm ci --omit=dev
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
-      - name: Deploy
-        run: echo "Deploy production build here."
+      - name: Install production dependencies
+        run: npm ci --omit=dev
+
+      # docker-entrypoint.sh does: supabase link → db:push → secrets set →
+      # functions deploy → cron schedule, then execs its argument.
+      # Passing `true` makes it exit 0 cleanly after provisioning completes.
+      - name: Run provisioning entrypoint (migrations → functions → cron)
+        run: bash docker-entrypoint.sh true
+
+  # ─── Job 2: OCI infrastructure via Terraform ───────────────────────────────
+  # Runs AFTER Supabase provisioning is confirmed healthy.
+  # Skipped automatically when OCI secrets are absent (e.g. cloud-only deploys).
+  provision-oci:
+    name: Provision OCI Infrastructure (Terraform)
+    needs: provision-supabase
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      OCI_TENANCY_OCID:    ${{ secrets.OCI_TENANCY_OCID }}
+      OCI_USER_OCID:       ${{ secrets.OCI_USER_OCID }}
+      OCI_FINGERPRINT:     ${{ secrets.OCI_FINGERPRINT }}
+      OCI_PRIVATE_KEY:     ${{ secrets.OCI_PRIVATE_KEY }}
+      OCI_REGION:          ${{ secrets.OCI_REGION }}
+      OCI_COMPARTMENT_ID:  ${{ secrets.OCI_COMPARTMENT_ID }}
+      OCI_AD_NAME:         ${{ secrets.OCI_AD_NAME }}
+      DOMAIN_NAME:         ${{ secrets.DOMAIN_NAME }}
+      LETSENCRYPT_EMAIL:   ${{ secrets.LETSENCRYPT_EMAIL }}
+      SSH_PUBLIC_KEY:      ${{ secrets.SSH_PUBLIC_KEY }}
+    steps:
+      - name: Check OCI secrets are present
+        id: check-oci
+        run: |
+          if [ -z "$OCI_TENANCY_OCID" ] || [ -z "$OCI_USER_OCID" ] || \
+             [ -z "$OCI_FINGERPRINT" ] || [ -z "$OCI_PRIVATE_KEY" ] || \
+             [ -z "$OCI_REGION" ]      || [ -z "$OCI_COMPARTMENT_ID" ] || \
+             [ -z "$OCI_AD_NAME" ]     || [ -z "$DOMAIN_NAME" ] || \
+             [ -z "$SSH_PUBLIC_KEY" ]; then
+            echo "One or more OCI secrets are not configured."
+            echo "Set OCI_TENANCY_OCID, OCI_USER_OCID, OCI_FINGERPRINT, OCI_PRIVATE_KEY,"
+            echo "OCI_REGION, OCI_COMPARTMENT_ID, OCI_AD_NAME, DOMAIN_NAME,"
+            echo "LETSENCRYPT_EMAIL, and SSH_PUBLIC_KEY in repository secrets to enable"
+            echo "automated OCI infrastructure provisioning."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "OCI secrets confirmed present."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check-oci.outputs.skip == 'false'
+
+      # Restore the most recent Terraform state written by a previous run.
+      # On first run this is a cache miss and Terraform starts fresh (correct behaviour).
+      - name: Restore Terraform state
+        if: steps.check-oci.outputs.skip == 'false'
+        uses: actions/cache/restore@v4
+        with:
+          path: terraform/terraform.tfstate*
+          # Unique key per run so every apply always saves a fresh snapshot.
+          key: terraform-state-main-${{ github.run_id }}
+          # Fall back to the most recent state from any previous run on main.
+          restore-keys: terraform-state-main-
+
+      - name: Setup Terraform
+        if: steps.check-oci.outputs.skip == 'false'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.7"
+
+      # Write the OCI API private key PEM from the secret.
+      # Capture the resolved path as a step output so TF_VAR_ can reference it.
+      - name: Write OCI API private key
+        if: steps.check-oci.outputs.skip == 'false'
+        id: oci-key
+        run: |
+          KEY_PATH="$HOME/.oci/oci_api_key.pem"
+          mkdir -p "$HOME/.oci"
+          printf '%s' "$OCI_PRIVATE_KEY" > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "path=$KEY_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Terraform Init
+        if: steps.check-oci.outputs.skip == 'false'
+        working-directory: terraform
+        env:
+          TF_VAR_tenancy_ocid:       ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_user_ocid:          ${{ secrets.OCI_USER_OCID }}
+          TF_VAR_fingerprint:        ${{ secrets.OCI_FINGERPRINT }}
+          TF_VAR_private_key_path:   ${{ steps.oci-key.outputs.path }}
+          TF_VAR_region:             ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_id:     ${{ secrets.OCI_COMPARTMENT_ID }}
+          TF_VAR_availability_domain: ${{ secrets.OCI_AD_NAME }}
+          TF_VAR_domain_name:        ${{ secrets.DOMAIN_NAME }}
+          TF_VAR_letsencrypt_email:  ${{ secrets.LETSENCRYPT_EMAIL }}
+          TF_VAR_ssh_public_key:     ${{ secrets.SSH_PUBLIC_KEY }}
+        run: terraform init -input=false
+
+      - name: Terraform Apply
+        if: steps.check-oci.outputs.skip == 'false'
+        working-directory: terraform
+        env:
+          TF_VAR_tenancy_ocid:       ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_user_ocid:          ${{ secrets.OCI_USER_OCID }}
+          TF_VAR_fingerprint:        ${{ secrets.OCI_FINGERPRINT }}
+          TF_VAR_private_key_path:   ${{ steps.oci-key.outputs.path }}
+          TF_VAR_region:             ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_id:     ${{ secrets.OCI_COMPARTMENT_ID }}
+          TF_VAR_availability_domain: ${{ secrets.OCI_AD_NAME }}
+          TF_VAR_domain_name:        ${{ secrets.DOMAIN_NAME }}
+          TF_VAR_letsencrypt_email:  ${{ secrets.LETSENCRYPT_EMAIL }}
+          TF_VAR_ssh_public_key:     ${{ secrets.SSH_PUBLIC_KEY }}
+        run: terraform apply -auto-approve -input=false
+
+      # Always save state after apply, even if the step failed, so the next
+      # run can inspect or recover from a partial apply.
+      - name: Save Terraform state
+        if: steps.check-oci.outputs.skip == 'false' && always()
+        uses: actions/cache/save@v4
+        with:
+          path: terraform/terraform.tfstate*
+          key: terraform-state-main-${{ github.run_id }}
