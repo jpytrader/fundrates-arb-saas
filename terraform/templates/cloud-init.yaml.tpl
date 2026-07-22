@@ -418,7 +418,7 @@ runcmd:
     TRIES=0
     until docker exec supabase-db pg_isready -U postgres -q; do
       TRIES=$((TRIES+1))
-      [ $TRIES -ge 36 ] && echo "DB readiness timed out" && break
+      [ $TRIES -ge 36 ] && echo "DB readiness timed out" && exit 1
       sleep 10
     done
 
