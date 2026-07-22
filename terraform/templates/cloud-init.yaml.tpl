@@ -386,7 +386,7 @@ runcmd:
     TRIES=0
     until curl -sf http://localhost:8000/api/health >/dev/null 2>&1; do
       TRIES=$((TRIES+1))
-      [ $TRIES -ge 30 ] && echo "Coolify health check timed out" && break
+      [ $TRIES -ge 30 ] && echo "Coolify health check timed out" && exit 1
       sleep 10
     done
 
