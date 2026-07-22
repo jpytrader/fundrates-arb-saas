@@ -6,6 +6,9 @@
 -- realtime subscriptions.
 -- ============================================================================
 
+\set ON_ERROR_STOP on
+BEGIN;
+
 -- ─── Canonical engine state (one row per user) ──────────────────────────────
 CREATE TABLE public.fra_state (
   user_id     UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -129,3 +132,5 @@ CREATE TRIGGER trg_fra_positions_touch
 --   );
 --   $$
 -- );
+
+COMMIT;
