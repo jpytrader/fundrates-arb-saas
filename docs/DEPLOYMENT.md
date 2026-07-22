@@ -143,8 +143,10 @@ SECURITY-DEFINER RPCs.
 supabase functions deploy stripe-webhook-fra
 supabase functions deploy reconcile-subscriptions
 supabase functions deploy revoke-exchange-key
-supabase functions deploy fra-engine          # updated: locks + cache + metrics
-supabase functions deploy rotate-exchange-key # updated: validateKeys
+supabase functions deploy fra-engine              # updated: locks + cache + metrics + S8 phase guard
+supabase functions deploy rotate-exchange-key     # updated: validateKeys
+supabase functions deploy close-all-positions     # S11: lock-protected position close
+supabase functions deploy admin-clear-state       # S14: admin factory-reset endpoint
 ```
 
 ### 3. Configure secrets
