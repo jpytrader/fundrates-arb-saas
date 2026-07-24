@@ -106,8 +106,8 @@ export function index() {
             theme="dark"
             persistenceStore={store}
             defaultConfig={{ dryRun: true }}
-            onExecution={(e) => console.log('[FRA]', e)}
-            onError={(err) => console.error('[FRA]', err)}
+            onExecution={(e) => console.log('[DMT]', e)}
+            onError={(err) => console.error('[DMT]', err)}
           />
         </>
       ) : (

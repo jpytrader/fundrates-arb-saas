@@ -1,5 +1,5 @@
 #cloud-config
-# Rendered by Terraform templatefile(). ${...} = Terraform variable, $VAR = shell variable.
+# Rendered by Terraform templatefile(). $${...} = Terraform variable, $$VAR = shell variable.
 # On first boot this script: mounts the data volume, installs Docker + Coolify,
 # generates Supabase JWT keys, starts all stacks, and enables the watchdog.
 

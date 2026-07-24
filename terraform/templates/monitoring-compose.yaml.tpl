@@ -1,5 +1,5 @@
 # monitoring-compose.yaml.tpl
-# Rendered by Terraform templatefile(). All ${...} references are Terraform variables.
+# Rendered by Terraform templatefile(). All $${...} references are Terraform variables.
 # Written to /data/monitoring/docker-compose.yml by cloud-init.
 
 version: "3.8"

@@ -1,5 +1,5 @@
 # supabase-compose.yaml.tpl
-# Rendered by Terraform templatefile(). All ${...} references are Terraform variables.
+# Rendered by Terraform templatefile(). All $${...} references are Terraform variables.
 # The resulting docker-compose.yml is written to /data/supabase/docker-compose.yml by cloud-init.
 # JWT keys (ANON_KEY / SERVICE_ROLE_KEY) are injected by cloud-init via sed after
 # the Python key-generator runs. Placeholders are __ANON_KEY__ and __SERVICE_ROLE_KEY__.
