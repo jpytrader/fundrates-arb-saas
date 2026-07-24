@@ -342,7 +342,22 @@ async function tickUser(
       return; // Exit out safely without overwriting the user's manual change!
     }
 
-    if(updated.version !== row.version) {
+    // S8 guard — Bug 1: phase stuck 'exiting' after a failed close.
+    // If the core package does not carry the catch-block phase-reset fix,
+    // engine.tick() can leave phase === 'exiting' in the MemoryStore.
+    // Writing that value to fra_state corrupts the DB row and makes dashboards
+    // show the engine as permanently stuck.  Skip the write and emit a
+    // structured warning so ops can investigate; fall through so execution
+    // events below are still mirrored.
+    const updatedPhase = (updated as unknown as Record<string, unknown>).phase as string | undefined;
+    if (updatedPhase === 'exiting') {
+      const userIdHash = await log.hashUserId(row.user_id);
+      log.warn('skipped_write_phase_exiting', {
+        user_id_hash: userIdHash,
+        hint: 'Core Bug 1 fix (catch-block phase reset to monitoring) appears to be missing — investigate the core package',
+      });
+      // Do NOT return — fall through so execution events are still mirrored.
+    } else if (updated.version !== row.version) {
       console.log(`[Deltametrician] Version changed from ${row.version} -> ${updated.version}. Writing changes...`);
       await supabase
         .from('fra_state')
