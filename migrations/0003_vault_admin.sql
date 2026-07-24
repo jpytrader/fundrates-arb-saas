@@ -1,6 +1,8 @@
 -- 0003_vault_admin.sql
 --
 -- Vault key rotation stack:
+\set ON_ERROR_STOP on
+BEGIN;
 --   * public.fra_key_rotations  — audit table
 --   * public.rotate_vault_secret(p_name, p_payload, p_user_id) — atomic
 --     create-or-update wrapper around vault.create_secret/vault.update_secret.
@@ -94,3 +96,5 @@ $$;
 REVOKE ALL ON FUNCTION public.rotate_vault_secret(text, text, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.rotate_vault_secret(text, text, uuid) FROM anon, authenticated;
 -- service_role keeps EXECUTE by default.
+
+COMMIT;

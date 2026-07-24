@@ -6,6 +6,7 @@
 --   * S6 — Vault revoke: action column on fra_key_rotations + revoke_vault_secret()
 --   * S7 — Observability: fra_engine_metrics table
 
+\set ON_ERROR_STOP on
 BEGIN;
 
 -- ───────────────────────── S3: Stripe webhook DLQ ─────────────────────────

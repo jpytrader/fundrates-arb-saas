@@ -1,6 +1,8 @@
 -- ============================================================================
 -- Funding Rate Arbitrage SaaS — billing slice (Stripe Sync Engine)
 -- ============================================================================
+\set ON_ERROR_STOP on
+BEGIN;
 -- Mandatory subscription gate. Bridges the Supabase Stripe Sync Engine's
 -- internal `stripe.subscriptions` table into a clean `public.subscriptions`
 -- table that RLS-scopes rows to the owning user via metadata.supabase_user_id.
@@ -92,3 +94,5 @@ CREATE TRIGGER trg_subscriptions_touch
 
 -- ─── Realtime: client gate unlocks ~1s after Stripe writes ──────────────────
 ALTER PUBLICATION supabase_realtime ADD TABLE public.subscriptions;
+
+COMMIT;
